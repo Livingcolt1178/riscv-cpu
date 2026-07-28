@@ -5,8 +5,8 @@ module pc(
     input logic br,
     input logic [31:0] imm,
 
-    output logic [31:0] pc_out
-    output logic [31:0] pc_plus4;
+    output logic [31:0] pc_out,
+    output logic [31:0] pc_plus4
 );
 
     logic [31:0] pc_branch;

@@ -32,7 +32,7 @@ module alu(
                     end
             110 : alu_out = val1 | val2;
             111 : alu_out = val1 & val2;
-            default: 32'd0;
+            default: alu_out = 32'd0;
         endcase
         
     end

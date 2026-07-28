@@ -1,3 +1,4 @@
+import riscv_pkg::*;
 module control_unit(
     input logic [31:0] inst,
     input logic [6:0] opcode,
@@ -5,7 +6,7 @@ module control_unit(
     output logic [2:0] action,
     output logic alu_modifier,
     output logic we, //not S and B
-    output enum  format
+    output format_t  format
 );
 
 always_comb begin

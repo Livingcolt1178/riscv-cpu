@@ -16,7 +16,7 @@ module reg_file(
     assign S1val = (S1reg == 0) ? 0 : regs[S1reg];
     assign S2val = (S2reg == 0) ? 0 : regs[S2reg];
 
-    always_ff(posedge clk) begin
+    always_ff @(posedge clk) begin
         if(we && WBreg != 0) begin
             regs[WBreg] <= WBval;
         end 

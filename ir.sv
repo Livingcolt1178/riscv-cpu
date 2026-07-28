@@ -11,7 +11,7 @@ module ir(
     output logic [6:0] fct7
 );
 
-always_ff (posedge clk or negedge rst_n) begin
+always_ff @(posedge clk or negedge rst_n) begin
     if(!rst_n) begin
         opcode  <= 0;
         rd      <= 0;
