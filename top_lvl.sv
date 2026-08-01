@@ -23,13 +23,14 @@ logic [31:0] WBval;
 logic [31:0] alu_out;
 logic [31:0] mem_out;
 logic [31:0] alu_s2;
+logic br;
 assign alu_s2 = (opcode == 0110011 ? S2val : imm); // this is alu src mux
 
 pc pc (
     .clk(clk),
     .rst_n(rst_n),
 
-    .br(),
+    .br(br),
     .imm(imm),
 
     .pc_out(pc_out),
@@ -43,21 +44,28 @@ ir ir(
 
     .opcode(opcode),    //to cu
     .rd(rd),
-    .fct3(fct3),    //dunno yet
+    .fct3(fct3),    
     .rs1(rs1),
     .rs2(rs2),
     .fct7(fct7)
+);
+
+alu_control_unit alu_control_unit (
+    .fct3(fct3),        
+    .alu_modifier(alu_modifier), //cu
+    .action(action),
+
+    .ALU_fct3(ALU_fct3)
 );
 
 
 alu alu(
     .val1(S1val),
     .val2(alu_s2),
-    .fct3(fct3),        //not sure
-    .alu_modifier(alu_modifier),      //cu
-    
+    .ALU_fct3(ALU_fct3),
+
     .alu_out(alu_out),
-    .br()           //not sure yet
+    .br(br)           //not sure yet
 );
 
 WB_sel_mux WB_sel_mux(
@@ -96,7 +104,7 @@ data_cache data_cache(
     .mem_in(S2val),
     .we(we),      //cu
 
-    .me_out(mem_out)
+    .mem_out(mem_out)
 );
 
 build_imm build_imm(

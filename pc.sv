@@ -12,7 +12,7 @@ module pc(
     logic [31:0] pc_branch;
     logic [31:0] pc_next;
 
-    assign pc_branch  = pc_out + imm;   // TA adder
+    assign pc_branch  = pc_out + imm;   // TA adder for JAL
     assign pc_plus4   = pc_out + 4;     
     assign pc_next    = br ? pc_branch : pc_plus4; //pc src mux
 

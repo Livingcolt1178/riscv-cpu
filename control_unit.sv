@@ -49,7 +49,7 @@ case(opcode)
     //Branch B
     1100011: begin
         format = B;
-
+        action = 3;
     end
 
     //LUI U
@@ -68,14 +68,14 @@ case(opcode)
     110111: begin
         format = J;
         we = 1;
-        action = 3;
+        action = 4;
     end
 
     //Jump JALR I
     110011: begin
         format = I;
         we = 1;
-        action = 3;
+        action = 4;
     end
 
     //Fence I
