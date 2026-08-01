@@ -9,7 +9,7 @@ package riscv_pkg;
         J
     } format_t;
 
-    typedef enum logic [4:0] {
+    typedef enum logic [3:0] {
             ALU_ADD,
             ALU_SUB,
             ALU_SLL,
@@ -19,16 +19,22 @@ package riscv_pkg;
             ALU_SRL,     
             ALU_SRA,
             ALU_OR,
-            ALU_AND,
-            ALU_BEQ,
-            ALU_BNE,
-            ALU_BLT,
-            ALU_BGE, 
-            ALU_BLTU,
-            ALU_BGEU,
+            ALU_AND
+    } ALU_fct3_t;
 
-            HOLD
-    } ALU_fct3_T;
+    typedef enum logic [3:0] {
+            NOP,
+
+            ALU,
+            LOAD,
+            STORE,
+            BRANCH,
+            JUMP,
+            JUMPR,
+            LUI,
+            AUIPC,
+            FENCE
+    } op_class_t;
 
 
 endpackage

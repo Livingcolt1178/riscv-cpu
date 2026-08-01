@@ -1,7 +1,7 @@
 import riscv_pkg::*;
 module build_imm (
     input logic [31:0] inst,
-    input format_t [2:0] format,
+    input format_t format,
 
     output logic [31:0] imm
 );
