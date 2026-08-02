@@ -2,13 +2,13 @@ module reg_file(
     input logic clk,
     
     input logic we,
-    input logic S2reg,
-    input logic S1reg,
-    input logic WBval,
-    input logic WBreg,
+    input logic [4:0] S2reg,
+    input logic [4:0] S1reg,
+    input logic [31:0] WBval,
+    input logic [4:0] WBreg,
 
-    output logic S2val,
-    output logic S1val
+    output logic [31:0] S2val,
+    output logic [31:0] S1val
 );
 
     logic [31:0] regs [31:0];

@@ -11,6 +11,8 @@ module ir(
     output logic [6:0] fct7
 );
 
+/* Commented out the flipflop version due to keeping this single cycle. Thus all logic except pc must be comb.
+
 always_ff @(posedge clk or negedge rst_n) begin
     if(!rst_n) begin
         opcode  <= 0;
@@ -27,6 +29,16 @@ always_ff @(posedge clk or negedge rst_n) begin
         rs2     <= inst [24:20];
         fct7    <= inst [31:25];
     end
+end
+*/
+
+always_comb begin
+        opcode  <= inst [6:0];
+        rd      <= inst [11:7];
+        fct3    <= inst [14:12];
+        rs1     <= inst [19:15];
+        rs2     <= inst [24:20];
+        fct7    <= inst [31:25];
 end
 
     

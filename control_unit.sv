@@ -40,17 +40,18 @@ always_comb begin
             we_reg = 1;
         end
 
-        //L/S I
+        //L/S Load I
         7'b0000011:begin
             op_class = LOAD;
             format = I;
-            we_mem = 1;
+            we_reg = 1;
         end
 
-        //L/S S
+        //L/S Store S
         7'b0100011: begin
             op_class = STORE;
             format = S;
+            we_mem = 1;
         end
 
         //System I
@@ -79,7 +80,7 @@ always_comb begin
         end
 
         //Jump JAL J
-        7'b110111: begin
+        7'b1101111: begin
             op_class = JUMP;
             format = J;
             we_reg = 1;
