@@ -1,6 +1,6 @@
 module ir(
-    input logic clk,
-    input logic rst_n,
+    // input logic clk,
+    // input logic rst_n,
     input logic [31:0] inst,
 
     output logic [6:0] opcode,

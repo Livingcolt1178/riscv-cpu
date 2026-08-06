@@ -57,20 +57,20 @@ pc pc (
 
     .pc_out(pc_out),
     .pc_plus4(pc_plus4)
-    );
+);
 
 target_address_constructor target_address_constructor(
-        .imm(imm),
-        .pc(pc_out),
-        .rs1(rs1),
-        .op_class(op_class),
+    .imm(imm),
+    .pc(pc_out),
+    .S1val(S1val),
+    .op_class(op_class),
         
-        .ta(ta)
-    );
+    .ta(ta)
+);
 
 ir ir(
-    .clk(clk),
-    .rst_n(rst_n),
+    // .clk(clk),
+    // .rst_n(rst_n),
     .inst(inst),
 
     .opcode(opcode),    //to cu
@@ -140,6 +140,7 @@ data_cache data_cache(
 
     .addr(alu_out),
     .mem_in(S2val),
+    .fct3(fct3),
     .we(we_mem),      //cu
 
     .mem_out(mem_out)

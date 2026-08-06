@@ -57,6 +57,7 @@ always_comb begin
         //System I
         7'b1110011: begin
             format = I;
+            op_class = NOP;
         end
 
         //Branch B
