@@ -1,0 +1,8 @@
+
+#vivado project files
+vivado/
+
+#generated spike files
+sw/*.o
+sw/*.elf
+sw/*.bin
