@@ -3,5 +3,5 @@ ENTRY(_start)
 SECTIONS {
   . = 0x80000000;
   .text : { *(.text) }
-  .tohost 0x800003FC : { *(.tohost) }
+  .tohost 0x800003F0 : { *(.tohost) }
 }

@@ -1,16 +1,27 @@
-AS = riscv-none-elf-as
-LD = riscv-none-elf-ld
-OBJCOPY = riscv-none-elf-objcopy
+CROSS   := riscv-none-elf-
+CC      := $(CROSS)gcc
+OBJCOPY := $(CROSS)objcopy
+CFLAGS  := -march=rv32im -mabi=ilp32 -nostdlib -nostartfiles
+SIMDIR  := ../vivado/RISCV/RISCV.sim/sim_1/behav/xsim
 
-program.hex: prog.elf
-	$(OBJCOPY) -O binary prog.elf prog.bin
-	python3 bin2hex.py prog.bin > program.hex
+all: sim
 
-prog.elf: prog.o link.ld
-	$(LD) -T link.ld prog.o -o prog.elf
+prog.elf: prog.S link.ld
+	$(CC) $(CFLAGS) -T link.ld -o $@ $
 
-prog.o: prog.S
-	$(AS) -march=rv32im -mabi=ilp32 prog.S -o prog.o
+prog.bin: prog.elf
+	$(OBJCOPY) -O binary $< $@
+
+program.hex: prog.bin bin2hex.py
+	python3 bin2hex.py $< > $@
+
+commit.log: prog.elf
+	spike --isa=RV32IM --log-commits $< 2> $@
+
+sim: program.hex commit.log
+	cp program.hex commit.log $(SIMDIR)/
 
 clean:
-	rm -f *.o *.elf *.bin
+	rm -f prog.elf prog.bin program.hex commit.log
+
+.PHONY: all sim clean
