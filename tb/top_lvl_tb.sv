@@ -117,7 +117,12 @@ module top_lvl_tb;
                 rtl_struct[j].mem_addr = dut.data_cache.addr;
             end
             if(dut.op_class == STORE) begin
-                rtl_struct[j].mem_data = dut.data_cache.mem_in;
+                case(dut.fct3) //this is due to idealized memory and not having done lane select yet
+                    3'b000: rtl_struct[j].mem_data = dut.data_cache.mem_in[7:0];
+                    3'b001: rtl_struct[j].mem_data = dut.data_cache.mem_in[15:0];
+                    3'b010: rtl_struct[j].mem_data = dut.data_cache.mem_in;
+                    default:rtl_struct[j].mem_data = dut.data_cache.mem_in;
+                endcase
             end 
 
             check("pc", spike_struct[j].pc, rtl_struct[j].pc,j);
