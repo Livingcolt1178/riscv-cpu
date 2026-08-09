@@ -6,3 +6,5 @@ vivado/
 sw/*.o
 sw/*.elf
 sw/*.bin
+sw/*.log
+build/

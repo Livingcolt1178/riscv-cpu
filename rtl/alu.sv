@@ -19,7 +19,7 @@ module alu(
             ALU_SLTU    : alu_out = (val1 < val2) ? 32'd1 : 32'd0; 
             ALU_XOR     : alu_out = val1 ^ val2;
             ALU_SRL     : alu_out = val1 >> shamt;
-            ALU_SRA     : alu_out = $signed(val1) >> shamt; //this preserves the sign, logical merely fills it with zeros.
+            ALU_SRA     : alu_out = $signed(val1) >>> shamt; //this preserves the sign, logical merely fills it with zeros.
             ALU_OR      : alu_out = val1 | val2;
             ALU_AND     : alu_out = val1 & val2;           
             
