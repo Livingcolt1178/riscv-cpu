@@ -26,7 +26,7 @@ module pc(
 
     always_ff @( posedge clk or negedge rst_n) begin : blockName
         if (!rst_n) begin
-            pc_out <= 0; 
+            pc_out <= 32'h8000_0000; 
         end else begin
             pc_out <= pc_next;
         end

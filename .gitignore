@@ -6,5 +6,4 @@ vivado/
 sw/*.o
 sw/*.elf
 sw/*.bin
-sw/*.hex
 sw/*.log

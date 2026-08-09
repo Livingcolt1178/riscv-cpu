@@ -12,8 +12,11 @@ _start:
     addi x1, x0, 5
     addi x2, x0, 7
     addi x3, x1, 10
-    li t0, 0x800003F0
-    li t1, 1
-    sw t1, 0(t0)
+    auipc x7, 0
+    jal   x8, next
+next:
+    li  t0, 0x800003F0
+    li  t1, 1
+    sw  t1, 0(t0)
 loop:
-    jal  x0, loop
+    jal x0, loop
