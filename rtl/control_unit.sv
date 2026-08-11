@@ -7,8 +7,9 @@ module control_unit(
     output logic alu_modifier,
     output logic we_mem, //not S and B
     output logic we_reg,
-    output format_t  format             
-);
+    output format_t  format,
+    output logic alu_s2_ctrl
+    );
 /*  Thought Box
 We need we for all opcodes except S and B
 the purpose of op_class is to tell what is happening elsewhere, changed to be enum.
@@ -22,6 +23,7 @@ always_comb begin
     we_mem       = 1'b0;
     we_reg       = 1'b0;
     alu_modifier = 1'b0;
+    alu_s2_ctrl  = 1'b0;
     case(opcode)
 
         //ALU R
@@ -30,6 +32,7 @@ always_comb begin
             format = R;
             alu_modifier = fct7[5];
             we_reg = 1;
+            alu_s2_ctrl = 1;
         end
 
         //ALU I
@@ -64,6 +67,7 @@ always_comb begin
         7'b1100011: begin
             op_class = BRANCH;
             format = B;
+            alu_s2_ctrl = 1;
         end
 
         //LUI U
@@ -99,10 +103,8 @@ always_comb begin
             op_class = FENCE;
             format = I;
         end
-
         default: begin
-            op_class = ALU;
-            format = R;
+
         end
     endcase
 end

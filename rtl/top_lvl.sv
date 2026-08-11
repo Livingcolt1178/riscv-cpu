@@ -4,155 +4,123 @@ module top_lvl(
     input wire clk,
     input wire rst_n
 );
-logic [31:0] pc_out;
-logic [31:0] pc_plus4;
 
-logic [31:0] inst;
-logic [31:0] imm;
+if_id_t if_id_d;
+if_id_t if_id_q;
 
-logic [6:0] opcode;
-logic [4:0] rd;
-logic [2:0] fct3;
-logic [4:0] rs1;
-logic [4:0] rs2;
-logic [6:0] fct7;
+id_ex_t id_ex_d;
+id_ex_t id_ex_q;
 
-logic [31:0] S1val;
-logic [31:0] S2val;
-logic [31:0] WBval;
-logic [31:0] alu_out;
-logic [31:0] mem_out;
-logic [31:0] alu_s2;
-logic br;
-logic [31:0] ta;
-logic we_mem;
-logic we_reg;
-logic alu_modifier;
+ex_mem_t ex_mem_d;
+ex_mem_t ex_mem_q;
 
+mem_wb_t mem_wb_d;
+mem_wb_t mem_wb_q;
 
-op_class_t op_class;
-format_t format;
-ALU_fct3_t ALU_fct3;
+logic stall_id;
+logic stall_ex;
+logic stall_mem;
+logic stall_wb;
 
-assign alu_s2 = (format == R || format == B ? S2val : imm); // this is alu src mux
+logic flush_id;
+logic flush_ex;
+logic flush_mem;
+logic flush_wb;
 
-control_unit control_unit(
-    .fct7(fct7),
-    .opcode(opcode),
+logic [31:0] wb_WBval;
+logic ex_redirect;
+logic [31:0] ex_redirect_pc;
+logic [31:0] id_S1val;
+logic [31:0] id_S2val;
 
-    .op_class(op_class),
-    .alu_modifier(alu_modifier),
-    .we_mem(we_mem),
-    .we_reg(we_reg),
-    .format(format)
-);
-
-pc pc (
+stage_if stage_if(
     .clk(clk),
     .rst_n(rst_n),
 
-    .br(br),
-    .ta(ta),
-    .op_class(op_class),
+    .ex_redirect(ex_redirect),
+    .ex_redirect_pc(ex_redirect_pc),
 
-    .pc_out(pc_out),
-    .pc_plus4(pc_plus4)
+    .if_id_d(if_id_d)
 );
 
-target_address_constructor target_address_constructor(
-    .imm(imm),
-    .pc(pc_out),
-    .S1val(S1val),
-    .op_class(op_class),
-        
-    .ta(ta)
-);
+assign flush_id = ex_redirect; 
+assign stall_id = 1'b0; //load-use interlock implemented at L3b
 
-ir ir(
-    // .clk(clk),
-    // .rst_n(rst_n),
-    .inst(inst),
+always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n)          if_id_q <= '0;
+    else if (flush_id)   if_id_q <= '0;
+    else if (!stall_id)  if_id_q <= if_id_d;
+end
 
-    .opcode(opcode),    //to cu
-    .rd(rd),
-    .fct3(fct3),    
-    .rs1(rs1),
-    .rs2(rs2),
-    .fct7(fct7)
-);
-
-alu_control_unit alu_control_unit (
-    .fct3(fct3),        
-    .alu_modifier(alu_modifier), //cu
-    .op_class(op_class),
-    .format(format),
-
-    .ALU_fct3(ALU_fct3)
-);
-
-alu alu(
-    .val1(S1val),
-    .val2(alu_s2),
-    .ALU_fct3(ALU_fct3),
-
-    .alu_out(alu_out)
-);
-
-branch_unit branch_unit(
-    .alu_out(alu_out),
-    .fct3(fct3),
-
-    .br(br)
-);
-
-WB_sel_mux WB_sel_mux(
-    .alu(alu_out),
-    .mem(mem_out),
-    .pc_plus4(pc_plus4),
-    .op_class(op_class),  //cu
-    .ta(ta),
-
-    .WBval(WBval)
-);
 
 reg_file reg_file(
     .clk(clk),
     
-    .we(we_reg),      //cu
-    .S2reg(rs2),
-    .S1reg(rs1),
-    .WBval(WBval),
-    .WBreg(rd),
+    .we(mem_wb_q.wb.we_reg),            //comes back in from wb stage
+    .S2reg(if_id_q.inst[24:20]),
+    .S1reg(if_id_q.inst[19:15]),
+    .WBval(wb_WBval),                      //comes back in from wb stage
+    .WBreg(mem_wb_q.wb.rd),             //comes back in from wb stage
 
-    .S2val(S2val),
-    .S1val(S1val)
-
+    .S1val(id_S1val),   //fed back into stage_id so that the total output comes from stage_id
+    .S2val(id_S2val)  //fed back into stage_id so that the total output comes from stage_id
 );
 
-instruction_cache instruction_cache(
-    .pc(pc_out),
-
-    .inst(inst)
+stage_id stage_id(
+    .if_id_q(if_id_q),
+    .S1val(id_S1val),
+    .S2val(id_S2val),
+    
+    .id_ex_d(id_ex_d)
 );
 
-data_cache data_cache(
+assign flush_ex = ex_redirect;
+assign stall_ex = 1'b0; //waiting on M extenstion
+
+
+always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n)          id_ex_q <= '0;
+    else if (flush_ex)   id_ex_q <= '0;
+    else if (!stall_ex)  id_ex_q <= id_ex_d;
+end
+
+stage_ex stage_ex(
+    .id_ex_q(id_ex_q),
+
+    .ex_mem_d(ex_mem_d),
+    .ex_redirect(ex_redirect),//not pipelined
+    .ex_redirect_pc(ex_redirect_pc) //not pipelined
+);
+
+assign flush_mem = 1'b0; //implemented at L5
+assign stall_mem = 1'b0; //implemented at L4
+
+always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n)          ex_mem_q <= '0;
+    else if (flush_mem)   ex_mem_q <= '0;
+    else if (!stall_mem)  ex_mem_q <= ex_mem_d;
+end
+
+stage_mem stage_mem(
     .clk(clk),
+    .ex_mem_q(ex_mem_q),
 
-    .addr(alu_out),
-    .mem_in(S2val),
-    .fct3(fct3),
-    .we(we_mem),      //cu
-
-    .mem_out(mem_out)
+    .mem_wb_d(mem_wb_d)
 );
 
-build_imm build_imm(
-    .inst(inst),
-    .format(format),
+assign flush_wb = 1'b0; //implemented at L4
+assign stall_wb = 1'b0; // WB never stalls: nothing downstream can block it
 
-    .imm(imm)
+always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n)          mem_wb_q <= '0;
+    else if (flush_wb)   mem_wb_q <= '0;
+    else if (!stall_wb)  mem_wb_q <= mem_wb_d;
+end
+
+stage_wb stage_wb(
+    .mem_wb_q(mem_wb_q),
+
+    .WBval(wb_WBval)
 );
-
-
 
 endmodule

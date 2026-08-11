@@ -3,7 +3,7 @@ module instruction_cache(
 
     output logic [31:0] inst
 );
-    localparam DEPTH = 256;
+    localparam DEPTH = 1024;
     logic [31:0] regs [DEPTH-1:0];
 
     initial $readmemh("program.hex", regs); // this initalizes the instruction cache with the program.

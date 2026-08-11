@@ -12,14 +12,19 @@ logic [31:0] base;
 
 always_comb begin
     case(op_class) 
-        BRANCH: base = pc;
-        JUMP:   base = pc;
-        JUMPR:  base = S1val;
-        LUI:    base = 0;
-        AUIPC:  base = pc;
+        BRANCH:  base = pc;
+        JUMP:    base = pc;
+        JUMPR:   base = S1val;
+        LUI:     base = 0;
+        AUIPC:   base = pc;
         default: base = pc;
     endcase
+
+    if(op_class == JUMPR) begin
+        ta = {(base + imm) & ~32'd1};
+    end else begin
+        ta = base + imm;
+    end
 end 
-assign ta = base + imm;
 
 endmodule
