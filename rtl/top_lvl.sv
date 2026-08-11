@@ -43,7 +43,7 @@ stage_if stage_if(
     .if_id_d(if_id_d)
 );
 
-assign flush_id = 1'b0; //ex_redirect at L3b
+assign flush_id = ex_redirect; 
 assign stall_id = 1'b0; //load-use interlock implemented at L3b
 
 always_ff @(posedge clk or negedge rst_n) begin
@@ -74,7 +74,7 @@ stage_id stage_id(
     .id_ex_d(id_ex_d)
 );
 
-assign flush_ex = 1'b0; //ex_redirect at L3b
+assign flush_ex = ex_redirect;
 assign stall_ex = 1'b0; //waiting on M extenstion
 
 

@@ -20,7 +20,7 @@ module top_lvl_tb;
     test_struct_t spike_struct [0:4999];
     test_struct_t rtl_struct [0:4999];
     localparam int MAX_CYCLES = 5000;
-    localparam int TOHOST = 32'h800003F0;
+    localparam int TOHOST = 32'h8000_13F0;  //do not forget to compare against link.ld
 
     // Instantiate the DUT (Device Under Test)
     top_lvl dut (
@@ -43,7 +43,7 @@ module top_lvl_tb;
     //timeout failsafe
     initial begin
         repeat (MAX_CYCLES) @(posedge clk);
-        $fatal;
+        $fatal(1, "FAIL: Pass Max Cycles");
     end
 
     task check(input string test_name, input logic [31:0] expected, input logic [31:0] got, input int cycle);
@@ -135,7 +135,7 @@ module top_lvl_tb;
                 check("rd_data",    spike_struct[j].rd_data,    rtl_struct[j].rd_data,  j);
                 check("mem_addr",   spike_struct[j].mem_addr,   rtl_struct[j].mem_addr, j);
                 check("mem_data",   spike_struct[j].mem_data,   rtl_struct[j].mem_data, j);
-                
+
                 if(dut.mem_wb_q.valid && dut.mem_wb_q.op_class == STORE && dut.mem_wb_q.alu_out == TOHOST) break;
                 j++;
                 if (j >= i) $fatal(1, "core still running at cycle %0d; Spike retired only %0d instructions", j, i);

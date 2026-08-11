@@ -15,13 +15,23 @@ prog.elf: $(SRC) link.ld
 	$(CC) $(CFLAGS) -T link.ld -o $@ $<
 
 prog.bin: prog.elf
-	$(OBJCOPY) -O binary $< $@
+	$(OBJCOPY) -O binary -j .text $< $@
+
+coverage_nop.S: coverage.S pad.py
+	python3 pad.py $< > $@
+
+%_nop.S: %.S pad.py
+	python3 pad.py $< > $@
+
+.PRECIOUS: %_nop.S
 
 program.hex: prog.bin bin2hex.py
 	python3 bin2hex.py $< > $@
 
 commit.log: prog.elf
-	spike --isa=RV32IM --log-commits $< 2> $@
+	timeout -k 5 120 spike --isa=RV32IM --log-commits $< < /dev/null 2> /tmp/commit.log || \
+	  { echo "ERROR: spike did not terminate"; exit 1; }
+	cp /tmp/commit.log $@
 
 # The ELF is the arbiter, not link.ld and the .S file that are supposed to agree.
 hostcheck: prog.elf
@@ -33,5 +43,6 @@ sim: program.hex commit.log
 
 clean:
 	rm -f prog.elf prog.bin prog.o program.hex commit.log
+	rm -f sw/*_nop.S
 
 .PHONY: all sim clean hostcheck

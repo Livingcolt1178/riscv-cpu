@@ -21,7 +21,7 @@ set -uo pipefail
 VIVADO_BIN="${VIVADO_BIN:-/mnt/c/AMDDesignTools/2025.2/Vivado/bin}"
 
 # Test programs, in order. Add new .S files here.
-TESTS=(prog.S coverage.S)
+TESTS=(prog_nop.S coverage_nop.S)
 
 TOP=top_lvl_tb          # testbench module name
 SNAPSHOT=tb_sim         # xelab output name
