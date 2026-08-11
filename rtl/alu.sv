@@ -2,7 +2,7 @@ import riscv_pkg::*;
 module alu( 
     input logic [31:0] val1,
     input logic [31:0] val2,
-    input ALU_fct3_t ALU_fct3,
+    input alu_fct3_t alu_fct3,
 
     output logic [31:0] alu_out
 );
@@ -11,7 +11,7 @@ module alu(
 
     // Function of ALU
     always_comb begin
-        case(ALU_fct3)
+        case(alu_fct3)
             ALU_ADD     : alu_out = val1 + val2;
             ALU_SUB     : alu_out = val1 - val2;
             ALU_SLL     : alu_out = val1 << shamt;

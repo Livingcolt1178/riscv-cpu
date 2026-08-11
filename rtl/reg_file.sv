@@ -7,8 +7,9 @@ module reg_file(
     input logic [31:0] WBval,
     input logic [4:0] WBreg,
 
-    output logic [31:0] S2val,
-    output logic [31:0] S1val
+    output logic [31:0] S1val,
+    output logic [31:0] S2val
+
 );
 
     logic [31:0] regs [31:0];

@@ -3,27 +3,22 @@ module pc(
     input logic clk,
     input logic rst_n,
 
-    input logic br,
-    input logic [31:0] ta,
-    input op_class_t op_class,
+    input logic ex_redirect,
+    input logic [31:0] ex_redirect_pc,
 
-    output logic [31:0] pc_out,
-    output logic [31:0] pc_plus4
+    output logic [31:0] pc_out
 );
 
     logic [31:0] pc_next;
 
-    assign pc_plus4   = pc_out + 4;     
 
     always_comb begin
-        case(op_class)
-            BRANCH:  pc_next = (br == 1 ) ? ta : pc_plus4;
-            JUMP:  pc_next = ta;
-            JUMPR: pc_next = {ta[31:1], 1'b0};
-            default: pc_next = pc_plus4;
-        endcase
+        if(ex_redirect) begin
+            pc_next = ex_redirect_pc;
+        end else begin
+            pc_next = pc_out + 32'd4;;
+        end
     end
-
     always_ff @( posedge clk or negedge rst_n) begin : blockName
         if (!rst_n) begin
             pc_out <= 32'h8000_0000; 
