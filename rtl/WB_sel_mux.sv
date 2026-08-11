@@ -11,7 +11,7 @@ module WB_sel_mux(
 
 logic [31:0] pc_plus4;
 
-assign pc_plus4 = pc + 32'd44;
+assign pc_plus4 = pc + 32'd4;
 
 always_comb begin
     case(op_class)

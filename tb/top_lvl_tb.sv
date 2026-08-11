@@ -20,6 +20,7 @@ module top_lvl_tb;
     test_struct_t spike_struct [0:4999];
     test_struct_t rtl_struct [0:4999];
     localparam int MAX_CYCLES = 5000;
+    localparam int TOHOST = 32'h800003F0;
 
     // Instantiate the DUT (Device Under Test)
     top_lvl dut (
@@ -104,37 +105,41 @@ module top_lvl_tb;
     //rtl absorbption
     initial begin
         j = 0;
-        wait(rst_n);
+         
         forever begin
             @(posedge clk);
-            rtl_struct[j].pc = dut.pc_out;
-            rtl_struct[j].hex_instr = dut.inst;
-            if(dut.we_reg != 0 && dut.rd != 0) begin
-                rtl_struct[j].rd = dut.rd;
-                rtl_struct[j].rd_data = dut.WBval;
-            end
-            if(dut.op_class == STORE || dut.op_class == LOAD) begin
-                rtl_struct[j].mem_addr = dut.data_cache.addr;
-            end
-            if(dut.op_class == STORE) begin
-                case(dut.fct3) //this is due to idealized memory and not having done lane select yet
-                    3'b000: rtl_struct[j].mem_data = dut.data_cache.mem_in[7:0];
-                    3'b001: rtl_struct[j].mem_data = dut.data_cache.mem_in[15:0];
-                    3'b010: rtl_struct[j].mem_data = dut.data_cache.mem_in;
-                    default:rtl_struct[j].mem_data = dut.data_cache.mem_in;
-                endcase
-            end 
+            if(dut.mem_wb_q.valid) begin //to allow the pipeline to fill and start retiring before we start the checking
+                
 
-            check("pc", spike_struct[j].pc, rtl_struct[j].pc,j);
-            check("hex_instr", spike_struct[j].hex_instr, rtl_struct[j].hex_instr,j);
-            check("rd", spike_struct[j].rd, rtl_struct[j].rd,j);
-            check("rd_data", spike_struct[j].rd_data, rtl_struct[j].rd_data,j);
-            check("mem_addr", spike_struct[j].mem_addr, rtl_struct[j].mem_addr,j);
-            check("mem_data", spike_struct[j].mem_data, rtl_struct[j].mem_data,j);
+                rtl_struct[j].pc = dut.mem_wb_q.pc;
+                rtl_struct[j].hex_instr = dut.mem_wb_q.trace.inst;
+                if(dut.mem_wb_q.wb.we_reg != 0 && dut.mem_wb_q.wb.rd != 0) begin
+                    rtl_struct[j].rd = dut.mem_wb_q.wb.rd;
+                    rtl_struct[j].rd_data = dut.wb_WBval;
+                end
+                if(dut.mem_wb_q.op_class == STORE || dut.mem_wb_q.op_class == LOAD) begin
+                    rtl_struct[j].mem_addr = dut.mem_wb_q.alu_out;
+                end
+                if(dut.mem_wb_q.op_class == STORE) begin
+                    case(dut.mem_wb_q.trace.fct3) //this is due to idealized memory and not having done lane select yet
+                        3'b000: rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata[7:0];
+                        3'b001: rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata[15:0];
+                        3'b010: rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata;
+                        default:rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata;
+                    endcase
+                end 
 
-            if( dut.data_cache.we && dut.data_cache.addr == 32'h800003F0) break;
-            j++;
-            if (j >= i) $fatal(1, "core still running at cycle %0d; Spike retired only %0d instructions", j, i);
+                check("pc",         spike_struct[j].pc,         rtl_struct[j].pc,       j);
+                check("hex_instr",  spike_struct[j].hex_instr,  rtl_struct[j].hex_instr,j);
+                check("rd",         spike_struct[j].rd,         rtl_struct[j].rd,       j);
+                check("rd_data",    spike_struct[j].rd_data,    rtl_struct[j].rd_data,  j);
+                check("mem_addr",   spike_struct[j].mem_addr,   rtl_struct[j].mem_addr, j);
+                check("mem_data",   spike_struct[j].mem_data,   rtl_struct[j].mem_data, j);
+                
+                if(dut.mem_wb_q.valid && dut.mem_wb_q.op_class == STORE && dut.mem_wb_q.alu_out == TOHOST) break;
+                j++;
+                if (j >= i) $fatal(1, "core still running at cycle %0d; Spike retired only %0d instructions", j, i);
+            end
         end
         $display("PASSED ALL TESTS, rtl tests: %d, spike tests: %d" ,j, i);
         $finish;

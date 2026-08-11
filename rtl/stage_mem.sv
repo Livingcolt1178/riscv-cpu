@@ -6,13 +6,17 @@ module stage_mem (
     output mem_wb_t mem_wb_d
 );
 
-    assign mem_wb_d.valid   = ex_mem_q.valid;
-    assign mem_wb_d.pc      = ex_mem_q.pc;
-    assign mem_wb_d.inst    = ex_mem_q.inst;
-    assign mem_wb_d.ta      = ex_mem_q.ta;
-    assign mem_wb_d.alu_out = ex_mem_q.alu_out;
-    assign mem_wb_d.op_class= ex_mem_q.op_class;
-    assign mem_wb_d.wb      = ex_mem_q.wb;
+    assign mem_wb_d.valid       = ex_mem_q.valid;
+    assign mem_wb_d.pc          = ex_mem_q.pc;
+    assign mem_wb_d.ta          = ex_mem_q.ta;
+    assign mem_wb_d.alu_out     = ex_mem_q.alu_out;
+    assign mem_wb_d.op_class    = ex_mem_q.op_class;
+    assign mem_wb_d.wb          = ex_mem_q.wb;
+    //trace signals
+    assign mem_wb_d.trace.inst      = ex_mem_q.inst;
+    assign mem_wb_d.trace.mem_wdata = ex_mem_q.S2val;
+    assign mem_wb_d.trace.fct3      = ex_mem_q.mem.fct3;
+
 
 data_cache data_cache(
     .clk(clk),

@@ -53,8 +53,13 @@ package riscv_pkg;
     } wb_ctrl_t;
 
     typedef struct packed {
+        logic [31:0] inst, mem_wdata;
+        logic [2:0] fct3;
+    } trace_t;
+
+    typedef struct packed {
         logic valid;
-        logic [31:0] pc, inst; //inst because we need for verification
+        logic [31:0] pc, inst;
     } if_id_t;
     
     typedef struct packed {
@@ -78,11 +83,11 @@ package riscv_pkg;
 
     typedef struct packed {
         logic valid;
-        logic [31:0] pc, inst; //inst because we need for verification
+        logic [31:0] pc; 
         logic [31:0] ta, alu_out, mem_out;
         op_class_t op_class;
         wb_ctrl_t wb;
+        trace_t trace;
     } mem_wb_t;
-
 
 endpackage

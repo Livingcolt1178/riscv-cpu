@@ -30,8 +30,8 @@ logic flush_wb;
 logic [31:0] wb_WBval;
 logic ex_redirect;
 logic [31:0] ex_redirect_pc;
-logic [31:0] S1val;
-logic [31:0] S2val;
+logic [31:0] id_S1val;
+logic [31:0] id_S2val;
 
 stage_if stage_if(
     .clk(clk),
@@ -62,14 +62,14 @@ reg_file reg_file(
     .WBval(wb_WBval),                      //comes back in from wb stage
     .WBreg(mem_wb_q.wb.rd),             //comes back in from wb stage
 
-    .S1val(S1val),   //fed back into stage_id so that the total output comes from stage_id
-    .S2val(S2val)  //fed back into stage_id so that the total output comes from stage_id
+    .S1val(id_S1val),   //fed back into stage_id so that the total output comes from stage_id
+    .S2val(id_S2val)  //fed back into stage_id so that the total output comes from stage_id
 );
 
 stage_id stage_id(
     .if_id_q(if_id_q),
-    .S1val(S1val),
-    .S2val(S2val),
+    .S1val(id_S1val),
+    .S2val(id_S2val),
     
     .id_ex_d(id_ex_d)
 );
