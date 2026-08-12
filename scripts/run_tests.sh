@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# run_tests.sh — L1 regression. One command, one verdict.
+# run_tests.sh — the regression. One command, one verdict.
 #
 #   ./scripts/run_tests.sh
 #
@@ -163,9 +163,9 @@ echo "=============================================================="
 for r in "${RESULTS[@]}"; do echo "  $r"; done
 echo "=============================================================="
 if (( FAILURES == 0 )); then
-    echo "L1 REGRESSION: PASS (${#TESTS[@]}/${#TESTS[@]})"
+    echo "REGRESSION: PASS (${#TESTS[@]}/${#TESTS[@]})"
     exit 0
 else
-    echo "L1 REGRESSION: FAIL ($FAILURES/${#TESTS[@]} failed)"
+    echo "REGRESSION: FAIL ($FAILURES/${#TESTS[@]} failed)"
     exit 1
 fi
