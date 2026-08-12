@@ -3,6 +3,7 @@ module pc(
     input logic clk,
     input logic rst_n,
 
+    input logic stall,
     input logic ex_redirect,
     input logic [31:0] ex_redirect_pc,
 
@@ -19,9 +20,12 @@ module pc(
             pc_next = pc_out + 32'd4;;
         end
     end
+
     always_ff @( posedge clk or negedge rst_n) begin : blockName
         if (!rst_n) begin
             pc_out <= 32'h8000_0000; 
+        end else if(stall) begin
+            pc_out <= pc_out;
         end else begin
             pc_out <= pc_next;
         end

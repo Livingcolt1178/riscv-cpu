@@ -5,11 +5,12 @@ module top_lvl_tb;
     // Clock and reset signals
     logic clk;
     logic rst_n;
-    logic [31:0] expected [0:31];
     string line;
-    int dirty_file, testnum, i, j;
+    int dirty_file, i, j;
     int core_id, step_num;
     logic [31:0] pc, hex_instr, rd, rd_data, mem_addr, mem_data;
+    
+    real cpi;
 
     typedef struct {
         int core_id, step_num;
@@ -21,6 +22,7 @@ module top_lvl_tb;
     test_struct_t rtl_struct [0:4999];
     localparam int MAX_CYCLES = 5000;
     localparam int TOHOST = 32'h8000_13F0;  //do not forget to compare against link.ld
+    logic [$clog2(MAX_CYCLES)-1 : 0 ] clk_count;
 
     // Instantiate the DUT (Device Under Test)
     top_lvl dut (
@@ -78,17 +80,21 @@ module top_lvl_tb;
                             spike_struct[i].rd = rd;
                             spike_struct[i].rd_data = rd_data;
                             spike_struct[i].mem_addr = mem_addr;
-
                         end else if ($sscanf(line,"core %d: %d 0x%x (0x%x) mem 0x%x 0x%x",  core_id, step_num, pc, hex_instr, mem_addr, mem_data) == 6) begin   //store operation
                             spike_struct[i].mem_addr = mem_addr;
                             spike_struct[i].mem_data = mem_data;
-
-
+                            if(spike_struct[i].mem_addr == TOHOST) begin
+                                i++;
+                                break;
+                            end
+                        end else if ($sscanf(line, "core %d: %d 0x%x (0x%x) mem 0x%x", core_id, step_num, pc, hex_instr, mem_addr) == 5) begin
+                            spike_struct[i].mem_addr = mem_addr;
                         end else if ($sscanf(line,"core %d: %d 0x%x (0x%x) x%d 0x%x",       core_id, step_num, pc, hex_instr, rd, rd_data) == 6) begin          //any reg operation
                             spike_struct[i].rd = rd;
                             spike_struct[i].rd_data = rd_data;
-                        end
+                        end                       
                         i++;
+                        
                     end
                 end else begin
                     $fatal(1, "[line: %d] unparseable line: %s ", i, line);     //nothing not matching these formats should pass
@@ -105,17 +111,20 @@ module top_lvl_tb;
     //rtl absorbption
     initial begin
         j = 0;
+        clk_count = 0;
          
         forever begin
+            wait(rst_n);
             @(posedge clk);
+            clk_count = clk_count + 1;
             if(dut.mem_wb_q.valid) begin //to allow the pipeline to fill and start retiring before we start the checking
-                
+                if (j > i) $fatal(1, "core still running at cycle %0d; Spike retired only %0d instructions", j, i);
 
                 rtl_struct[j].pc = dut.mem_wb_q.pc;
                 rtl_struct[j].hex_instr = dut.mem_wb_q.trace.inst;
                 if(dut.mem_wb_q.wb.we_reg != 0 && dut.mem_wb_q.wb.rd != 0) begin
                     rtl_struct[j].rd = dut.mem_wb_q.wb.rd;
-                    rtl_struct[j].rd_data = dut.wb_WBval;
+                    rtl_struct[j].rd_data = dut.mem_wb_q.WBval;
                 end
                 if(dut.mem_wb_q.op_class == STORE || dut.mem_wb_q.op_class == LOAD) begin
                     rtl_struct[j].mem_addr = dut.mem_wb_q.alu_out;
@@ -135,13 +144,13 @@ module top_lvl_tb;
                 check("rd_data",    spike_struct[j].rd_data,    rtl_struct[j].rd_data,  j);
                 check("mem_addr",   spike_struct[j].mem_addr,   rtl_struct[j].mem_addr, j);
                 check("mem_data",   spike_struct[j].mem_data,   rtl_struct[j].mem_data, j);
-
-                if(dut.mem_wb_q.valid && dut.mem_wb_q.op_class == STORE && dut.mem_wb_q.alu_out == TOHOST) break;
                 j++;
-                if (j >= i) $fatal(1, "core still running at cycle %0d; Spike retired only %0d instructions", j, i);
+                if(dut.mem_wb_q.valid && dut.mem_wb_q.op_class == STORE && dut.mem_wb_q.alu_out == TOHOST) break;                
             end
         end
-        $display("PASSED ALL TESTS, rtl tests: %d, spike tests: %d" ,j, i);
+        clk_count--; //we subtract one at the end because it will always add a clk count before it detects tohost thus adding a cycle that didn't happen.
+        cpi = real'(clk_count)/real'(j);// right now there is a 1 cycle lag due to interlocking firing when it shouldn't, this can be fixed by setting rs1 and rs2 to x0 on U and J formats as to not cause interlocking when it shouldn't
+        $display("PASSED ALL TESTS, rtl tests: %d, spike tests: %d, CPI: %f" ,j, i, cpi);
         $finish;
     end
 endmodule

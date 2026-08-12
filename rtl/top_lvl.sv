@@ -17,6 +17,7 @@ ex_mem_t ex_mem_q;
 mem_wb_t mem_wb_d;
 mem_wb_t mem_wb_q;
 
+logic stall_if;
 logic stall_id;
 logic stall_ex;
 logic stall_mem;
@@ -27,7 +28,6 @@ logic flush_ex;
 logic flush_mem;
 logic flush_wb;
 
-logic [31:0] wb_WBval;
 logic ex_redirect;
 logic [31:0] ex_redirect_pc;
 logic [31:0] id_S1val;
@@ -36,10 +36,16 @@ logic [31:0] id_S2val;
 fwd_sel_t fwd_a;
 fwd_sel_t fwd_b;
 
+logic load_use_hazard;
+
+assign load_use_hazard = (id_ex_q.op_class == LOAD && id_ex_q.wb.rd != 0 && ((id_ex_q.wb.rd == if_id_q.inst[19:15]) || (id_ex_q.wb.rd == if_id_q.inst[24:20])));
+assign stall_if = load_use_hazard;
+
 stage_if stage_if(
     .clk(clk),
     .rst_n(rst_n),
 
+    .stall(stall_if),
     .ex_redirect(ex_redirect),
     .ex_redirect_pc(ex_redirect_pc),
 
@@ -47,7 +53,7 @@ stage_if stage_if(
 );
 
 assign flush_id = ex_redirect; 
-assign stall_id = 1'b0; //load-use interlock implemented at L3b
+assign stall_id = load_use_hazard;
 
 always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n)          if_id_q <= '0;
@@ -62,7 +68,7 @@ reg_file reg_file(
     .we(mem_wb_q.wb.we_reg),            //comes back in from wb stage
     .S2reg(if_id_q.inst[24:20]),
     .S1reg(if_id_q.inst[19:15]),
-    .WBval(wb_WBval),                      //comes back in from wb stage
+    .WBval(mem_wb_q.WBval),                      //comes back in from wb stage
     .WBreg(mem_wb_q.wb.rd),             //comes back in from wb stage
 
     .S1val(id_S1val),   //fed back into stage_id so that the total output comes from stage_id
@@ -77,7 +83,7 @@ stage_id stage_id(
     .id_ex_d(id_ex_d)
 );
 
-assign flush_ex = ex_redirect;
+assign flush_ex = ex_redirect || load_use_hazard;
 assign stall_ex = 1'b0; //waiting on M extenstion
 
 
@@ -138,10 +144,5 @@ always_ff @(posedge clk or negedge rst_n) begin
     else if (!stall_wb)  mem_wb_q <= mem_wb_d;
 end
 
-stage_wb stage_wb(
-    .mem_wb_q(mem_wb_q),
-
-    .WBval(wb_WBval)
-);
 
 endmodule

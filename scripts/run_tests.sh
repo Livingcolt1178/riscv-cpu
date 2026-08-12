@@ -21,7 +21,7 @@ set -uo pipefail
 VIVADO_BIN="${VIVADO_BIN:-/mnt/c/AMDDesignTools/2025.2/Vivado/bin}"
 
 # Test programs, in order. Add new .S files here.
-TESTS=(prog_nop.S coverage_nop.S coverage.S)
+TESTS=(prog.S prog_nop.S coverage_nop.S coverage.S loaduse.S)
 
 TOP=top_lvl_tb          # testbench module name
 SNAPSHOT=tb_sim         # xelab output name
@@ -89,13 +89,55 @@ for test in "${TESTS[@]}"; do
     # xsim resolves $readmemh and $fopen against its working directory.
     cp "$SW/program.hex" "$SW/commit.log" "$WORK/"
 
-    cmd.exe /c "$XVLOG" -sv "${WIN_SOURCES[@]}"                >> "$log" 2>&1
+    # Delete the snapshot BEFORE elaborating. A failed xvlog/xelab leaves the
+    # previous run's snapshot in place, and `xsim tb_sim -R` will happily run
+    # it and print PASSED ALL TESTS for code that no longer compiles. That is
+    # not hypothetical: on 2026-08-12 a duplicate enum member broke
+    # riscv_pkg.sv, the stale library elaborated, and the suite reported
+    # PASS (2/2) on a design containing an uninstantiated forwarding unit.
+    rm -rf "$WORK/xsim.dir/$SNAPSHOT"
+
+    # Each tool's exit code is checked. `set -e` would not help — these are
+    # bare cmd.exe calls whose status was previously discarded, so a tool
+    # that died produced no PASSED ALL TESTS, the verdict was correctly FAIL,
+    # and the *reason* was buried in the log. Naming the failing stage here
+    # is the difference between a one-line answer and a bisect.
+    if ! cmd.exe /c "$XVLOG" -sv "${WIN_SOURCES[@]}" >> "$log" 2>&1; then
+        echo "  FAIL — xvlog (compile)"
+        grep -E "^ERROR" "$log" | head -5 | sed 's/^/    /'
+        RESULTS+=("FAIL  $test  (xvlog)")
+        FAILURES=$((FAILURES + 1))
+        continue
+    fi
+
     # -timescale supplies a default for modules that declare none. Only the
     # testbench has a `timescale directive; the Vivado GUI project was
     # silently providing this and standalone xelab is not.
-    cmd.exe /c "$XELAB" -debug typical -timescale 1ps/1ps \
-                        "$TOP" -s "$SNAPSHOT"              >> "$log" 2>&1
-    cmd.exe /c "$XSIM"  "$SNAPSHOT" -R                         >> "$log" 2>&1
+    if ! cmd.exe /c "$XELAB" -debug typical -timescale 1ps/1ps \
+                             "$TOP" -s "$SNAPSHOT" >> "$log" 2>&1; then
+        echo "  FAIL — xelab (elaborate)"
+        grep -E "^ERROR" "$log" | head -5 | sed 's/^/    /'
+        RESULTS+=("FAIL  $test  (xelab)")
+        FAILURES=$((FAILURES + 1))
+        continue
+    fi
+
+    # Belt and braces: a zero exit status from a .bat wrapper is not proof the
+    # snapshot exists. Check the artifact itself before trusting the run.
+    if [[ ! -d "$WORK/xsim.dir/$SNAPSHOT" ]]; then
+        echo "  FAIL — xelab reported success but produced no snapshot"
+        RESULTS+=("FAIL  $test  (no snapshot)")
+        FAILURES=$((FAILURES + 1))
+        continue
+    fi
+
+    if ! cmd.exe /c "$XSIM" "$SNAPSHOT" -R >> "$log" 2>&1; then
+        echo "  FAIL — xsim (simulate)"
+        grep -E "^ERROR|Fatal" "$log" | head -5 | sed 's/^/    /'
+        RESULTS+=("FAIL  $test  (xsim)")
+        FAILURES=$((FAILURES + 1))
+        continue
+    fi
 
     # Verdict requires POSITIVE evidence of success, not merely the absence
     # of the word FAIL. A run that dies before the checker starts produces
