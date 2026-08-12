@@ -25,6 +25,7 @@ module reg_file(
         end else begin
             S1val = (S1reg == 0) ? 0 : regs[S1reg];
         end
+        
         if((wr_en) && WBreg == S2reg) begin
             S2val = WBval;
         end else begin

@@ -36,6 +36,12 @@ package riscv_pkg;
             FENCE
     } op_class_t;
 
+    typedef enum logic [1:0] {
+        FWD_NONE,
+        FWD_EX,
+        FWD_MEM
+    } fwd_sel_t;
+
     typedef struct packed {
         alu_fct3_t alu_fct3;
         logic alu_s2_ctrl;
@@ -66,6 +72,7 @@ package riscv_pkg;
         logic valid;
         logic [31:0] pc, inst; //inst because we need for verification
         logic [31:0] imm, S1val, S2val;
+        logic [4:0] rs1, rs2;
         op_class_t op_class;
         ex_ctrl_t ex;
         mem_ctrl_t mem;
@@ -75,7 +82,7 @@ package riscv_pkg;
     typedef struct packed {
         logic valid;
         logic [31:0] pc, inst; //inst because we need for verification
-        logic [31:0] ta, alu_out, S2val;
+        logic [31:0] ta, alu_out, S2val, WBval;
         op_class_t op_class;
         mem_ctrl_t mem;
         wb_ctrl_t wb;
@@ -84,7 +91,7 @@ package riscv_pkg;
     typedef struct packed {
         logic valid;
         logic [31:0] pc; 
-        logic [31:0] ta, alu_out, mem_out;
+        logic [31:0] ta, alu_out, mem_out, WBval;
         op_class_t op_class;
         wb_ctrl_t wb;
         trace_t trace;

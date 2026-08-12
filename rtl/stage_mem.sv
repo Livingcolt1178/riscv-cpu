@@ -12,6 +12,8 @@ module stage_mem (
     assign mem_wb_d.alu_out     = ex_mem_q.alu_out;
     assign mem_wb_d.op_class    = ex_mem_q.op_class;
     assign mem_wb_d.wb          = ex_mem_q.wb;
+    assign mem_wb_d.WBval       = ex_mem_q.WBval;
+
     //trace signals
     assign mem_wb_d.trace.inst      = ex_mem_q.inst;
     assign mem_wb_d.trace.mem_wdata = ex_mem_q.S2val;

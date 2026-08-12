@@ -5,13 +5,11 @@ module stage_wb (
     output logic [31:0] WBval
 );
 
-WB_sel_mux WB_sel_mux(
-    .alu(mem_wb_q.alu_out),
-    .mem(mem_wb_q.mem_out),
-    .pc(mem_wb_q.pc),
-    .op_class(mem_wb_q.op_class),  //cu
-    .ta(mem_wb_q.ta),
-
-    .WBval(WBval)
-);
+    always_comb begin
+        if(mem_wb_q.op_class == LOAD) begin
+            WBval = mem_wb_q.mem_out;
+        end else begin
+            WBval = mem_wb_q.WBval;
+        end
+    end
 endmodule

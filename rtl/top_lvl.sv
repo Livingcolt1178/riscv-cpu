@@ -33,6 +33,9 @@ logic [31:0] ex_redirect_pc;
 logic [31:0] id_S1val;
 logic [31:0] id_S2val;
 
+fwd_sel_t fwd_a;
+fwd_sel_t fwd_b;
+
 stage_if stage_if(
     .clk(clk),
     .rst_n(rst_n),
@@ -84,8 +87,26 @@ always_ff @(posedge clk or negedge rst_n) begin
     else if (!stall_ex)  id_ex_q <= id_ex_d;
 end
 
+forwarding_unit forwarding_unit(
+    .id_S1reg(id_ex_q.rs1),
+    .id_S2reg(id_ex_q.rs2),
+
+    .ex_WBreg(ex_mem_q.wb.rd),
+    .ex_we(ex_mem_q.wb.we_reg),
+
+    .mem_WBreg(mem_wb_q.wb.rd),
+    .mem_we(mem_wb_q.wb.we_reg),
+
+    .fwd_a(fwd_a),
+    .fwd_b(fwd_b)
+);
+
 stage_ex stage_ex(
     .id_ex_q(id_ex_q),
+    .fwd_ex_val(ex_mem_q.WBval),
+    .fwd_mem_val(mem_wb_q.WBval),
+    .fwd_a(fwd_a), 
+    .fwd_b(fwd_b),
 
     .ex_mem_d(ex_mem_d),
     .ex_redirect(ex_redirect),//not pipelined
