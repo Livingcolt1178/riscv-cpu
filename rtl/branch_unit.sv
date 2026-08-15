@@ -9,6 +9,7 @@ output logic br
             3'b000: br = (alu_out == 0);
             3'b001: br = (alu_out != 0);
             3'b100: br = (alu_out == 1);
+            
             3'b101: br = (alu_out == 0);
             3'b110: br = (alu_out == 1);
             3'b111: br = (alu_out == 0);

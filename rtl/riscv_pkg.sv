@@ -33,7 +33,7 @@ package riscv_pkg;
             JUMPR,
             LUI,
             AUIPC,
-            FENCE
+            FENCE   //not yet implemented
     } op_class_t;
 
     typedef enum logic [1:0] {
@@ -59,8 +59,9 @@ package riscv_pkg;
     } wb_ctrl_t;
 
     typedef struct packed {
-        logic [31:0] inst, mem_wdata;
+        logic [31:0] inst, alu_out, mem_wdata, pc;
         logic [2:0] fct3;
+        op_class_t op_class;
     } trace_t;
 
     typedef struct packed {
@@ -70,29 +71,30 @@ package riscv_pkg;
     
     typedef struct packed {
         logic valid;
-        logic [31:0] pc, inst; //inst because we need for verification
-        logic [31:0] imm, S1val, S2val;
-        logic [4:0] rs1, rs2;
-        op_class_t op_class;
-        ex_ctrl_t ex;
-        mem_ctrl_t mem;
-        wb_ctrl_t wb;
+        logic [31:0] pc;         //dies in ex 
+        logic [31:0] inst;       //carried for verification
+        logic [31:0] imm, S1val; //dies in ex
+        logic [31:0] S2val;      //dies in mem
+        logic [4:0] rs1, rs2;    //dies in ex, used for forwarding
+        op_class_t op_class;     //dies in mem
+        ex_ctrl_t ex;            //dies in ex
+        mem_ctrl_t mem;          //dies in mem
+        wb_ctrl_t wb;            //dies in wb
     } id_ex_t;
 
     typedef struct packed {
         logic valid;
-        logic [31:0] pc, inst; //inst because we need for verification
-        logic [31:0] ta, alu_out, S2val, WBval;
-        op_class_t op_class;
-        mem_ctrl_t mem;
-        wb_ctrl_t wb;
+        logic [31:0] pc, inst, alu_out;              //carried for verification
+        logic [31:0] S2val;  //dies in mem
+        logic [31:0] WBval;  //dies in wb
+        op_class_t op_class; //carried for verification
+        mem_ctrl_t mem;      //dies in mem
+        wb_ctrl_t wb;        //dies in wb
     } ex_mem_t;
 
     typedef struct packed {
         logic valid;
-        logic [31:0] pc; 
-        logic [31:0] ta, alu_out, mem_out, WBval;
-        op_class_t op_class;
+        logic [31:0] WBval;
         wb_ctrl_t wb;
         trace_t trace;
     } mem_wb_t;

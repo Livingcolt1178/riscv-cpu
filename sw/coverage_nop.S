@@ -370,6 +370,49 @@ S3: bgeu  x7, x5, S4              # taken
     nop
     nop
 S4:
+# ---------------------------------------------------------------------------
+# equality boundary — the only input where >= and > differ
+#   bge/bgeu are the complement of a *strict* SLT/SLTU, so rs1 == rs2 must
+#   branch. A comparator that is accidentally non-strict inverts every line
+#   in this block and passes every branch test above it.
+# ---------------------------------------------------------------------------
+    bge   x5, x5, E1              # taken:     10 >= 10   signed
+    nop
+    nop
+    addi  x28, x0, 1
+    nop
+    nop
+E1: bgeu  x5, x5, E2              # taken:     10 >= 10   unsigned
+    nop
+    nop
+    addi  x28, x0, 2
+    nop
+    nop
+E2: bge   x7, x7, E3              # taken:    -10 >= -10  sign bit set
+    nop
+    nop
+    addi  x28, x0, 3
+    nop
+    nop
+E3: bgeu  x7, x7, E4              # taken:     same operands, unsigned path
+    nop
+    nop
+    addi  x28, x0, 4
+    nop
+    nop
+E4: blt   x5, x5, E5              # not taken: strictness
+    nop
+    nop
+    addi  x29, x0, 1
+    nop
+    nop
+E5: bltu  x7, x7, E6              # not taken: strictness, sign bit set
+    nop
+    nop
+    addi  x29, x0, 2
+    nop
+    nop
+E6:
 
 # ---------------------------------------------------------------------------
 # backward branch — the only one in the program. Runs the body twice.

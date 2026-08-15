@@ -120,16 +120,16 @@ module top_lvl_tb;
             if(dut.mem_wb_q.valid) begin //to allow the pipeline to fill and start retiring before we start the checking
                 if (j > i) $fatal(1, "core still running at cycle %0d; Spike retired only %0d instructions", j, i);
 
-                rtl_struct[j].pc = dut.mem_wb_q.pc;
+                rtl_struct[j].pc = dut.mem_wb_q.trace.pc;
                 rtl_struct[j].hex_instr = dut.mem_wb_q.trace.inst;
                 if(dut.mem_wb_q.wb.we_reg != 0 && dut.mem_wb_q.wb.rd != 0) begin
                     rtl_struct[j].rd = dut.mem_wb_q.wb.rd;
                     rtl_struct[j].rd_data = dut.mem_wb_q.WBval;
                 end
-                if(dut.mem_wb_q.op_class == STORE || dut.mem_wb_q.op_class == LOAD) begin
-                    rtl_struct[j].mem_addr = dut.mem_wb_q.alu_out;
+                if(dut.mem_wb_q.trace.op_class == STORE || dut.mem_wb_q.trace.op_class == LOAD) begin
+                    rtl_struct[j].mem_addr = dut.mem_wb_q.trace.alu_out;
                 end
-                if(dut.mem_wb_q.op_class == STORE) begin
+                if(dut.mem_wb_q.trace.op_class == STORE) begin
                     case(dut.mem_wb_q.trace.fct3) //this is due to idealized memory and not having done lane select yet
                         3'b000: rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata[7:0];
                         3'b001: rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata[15:0];
@@ -145,7 +145,7 @@ module top_lvl_tb;
                 check("mem_addr",   spike_struct[j].mem_addr,   rtl_struct[j].mem_addr, j);
                 check("mem_data",   spike_struct[j].mem_data,   rtl_struct[j].mem_data, j);
                 j++;
-                if(dut.mem_wb_q.valid && dut.mem_wb_q.op_class == STORE && dut.mem_wb_q.alu_out == TOHOST) break;                
+                if(dut.mem_wb_q.valid && dut.mem_wb_q.trace.op_class == STORE && dut.mem_wb_q.trace.alu_out == TOHOST) break;                
             end
         end
         clk_count--; //we subtract one at the end because it will always add a clk count before it detects tohost thus adding a cycle that didn't happen.

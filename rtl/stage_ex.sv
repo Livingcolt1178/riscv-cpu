@@ -11,24 +11,25 @@ module stage_ex (
     output logic[31:0] ex_redirect_pc
 );
 
-//so ex needs, imm, pc, s1val, op_class, alu_fct3, s2val, fct3
 
-//ex_mem_d needs, ta, alu_out, br
 logic br;
 logic [31:0] s1_fwd;
 logic [31:0] s2_fwd;
+logic [31:0] ta;
 
-//what is driven from outputs: ta, alu_out, br
-//what is needed to be driving:pc, inst, s2val, opclass,mem,wb
+//driven signals to future stages
 assign ex_mem_d.valid       = id_ex_q.valid;
-assign ex_mem_d.pc          = id_ex_q.pc;
-assign ex_mem_d.inst        = id_ex_q.inst;
 assign ex_mem_d.S2val       = s2_fwd;
 assign ex_mem_d.op_class    = id_ex_q.op_class;
 assign ex_mem_d.mem         = id_ex_q.mem;
 assign ex_mem_d.wb          = id_ex_q.wb;
 
-assign ex_redirect_pc = ex_mem_d.ta;
+//trace signals
+assign ex_mem_d.pc          = id_ex_q.pc;
+assign ex_mem_d.inst        = id_ex_q.inst;
+
+
+assign ex_redirect_pc = ta;
 always_comb begin
     if((ex_mem_d.op_class == BRANCH && br == 1) || ex_mem_d.op_class == JUMP || ex_mem_d.op_class == JUMPR) begin
         ex_redirect = 1;
@@ -56,7 +57,7 @@ target_address_constructor target_address_constructor(
     .S1val(s1_fwd),
     .op_class(id_ex_q.op_class),
         
-    .ta(ex_mem_d.ta)
+    .ta(ta)
 );
 
 alu alu(
@@ -78,7 +79,7 @@ WB_sel_mux WB_sel_mux(
     .alu(ex_mem_d.alu_out),
     .pc(ex_mem_d.pc),
     .op_class(ex_mem_d.op_class),  //cu
-    .ta(ex_mem_d.ta),
+    .ta(ta),
 
     .WBval(ex_mem_d.WBval)
 );

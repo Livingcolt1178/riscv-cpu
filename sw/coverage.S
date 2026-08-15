@@ -180,6 +180,25 @@ S2: bge   x7, x5, S3              # not taken
 S3: bgeu  x7, x5, S4              # taken
     addi  x25, x0, 2
 S4:
+# ---------------------------------------------------------------------------
+# equality boundary — the only input where >= and > differ
+#   bge/bgeu are the complement of a *strict* SLT/SLTU, so rs1 == rs2 must
+#   branch. A comparator that is accidentally non-strict inverts every line
+#   in this block and passes every branch test above it.
+# ---------------------------------------------------------------------------
+    bge   x5, x5, E1              # taken:     10 >= 10   signed
+    addi  x28, x0, 1
+E1: bgeu  x5, x5, E2              # taken:     10 >= 10   unsigned
+    addi  x28, x0, 2
+E2: bge   x7, x7, E3              # taken:    -10 >= -10  sign bit set
+    addi  x28, x0, 3
+E3: bgeu  x7, x7, E4              # taken:     same operands, unsigned path
+    addi  x28, x0, 4
+E4: blt   x5, x5, E5              # not taken: strictness
+    addi  x29, x0, 1
+E5: bltu  x7, x7, E6              # not taken: strictness, sign bit set
+    addi  x29, x0, 2
+E6:
 
 # ---------------------------------------------------------------------------
 # backward branch — the only one in the program. Runs the body twice.

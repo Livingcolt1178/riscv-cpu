@@ -62,6 +62,7 @@ module data_cache #(parameter int DEPTH = 256) (
                 3'b000: regs[word_addr][start +: 8]  <= byte_data;
                 3'b001: regs[word_addr][start +: 16] <= half_data;
                 3'b010: regs[word_addr][start +: 32] <= word_data;
+                default: regs[0] <= 0;
             endcase
         end
     end
