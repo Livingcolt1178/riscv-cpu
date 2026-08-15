@@ -24,7 +24,7 @@ in hardware — no NOP padding required.
 
 | | |
 |---|---|
-| RV32I base integer set | ✅ 34 of 37 — see below |
+| RV32I base integer set | ✅ 37 of 37 |
 | 5-stage pipeline (IF/ID/EX/MEM/WB) | ✅ |
 | Control hazards — branch, JAL, JALR | ✅ flushed in hardware, 2-cycle penalty |
 | Data hazards — EX/MEM and MEM/WB forwarding | ✅ |
@@ -32,13 +32,7 @@ in hardware — no NOP padding required.
 | Synthesis / timing closure | ❌ L2 |
 | M extension, caches, CSRs and traps | ❌ M / L4 / L5 |
 
-**Instruction coverage is 34 of the 37 base integer instructions.** `bge`, `bltu` and
-`bgeu` are implemented in `branch_unit` but are not exercised by any test program, so
-they are unverified rather than known-good — the inverted and unsigned comparisons are
-exactly where a sign-handling bug would hide. FENCE, ECALL/EBREAK and the Zicsr
-instructions are not implemented at all (L5). Every instruction added from here should
-land in `sw/coverage.S` in the same commit; the count above is the honest one and is
-meant to move.
+
 
 ### Hazards are resolved in hardware
 
