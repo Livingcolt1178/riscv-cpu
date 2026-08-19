@@ -7,7 +7,8 @@ input logic stall,
 input logic ex_redirect,
 input logic [31:0] ex_redirect_pc,
 
-output if_id_t if_id_d
+output if_id_t if_id_d,
+output logic [31:0] if_inst
 );
 
     assign if_id_d.valid  = 1'b1;
@@ -24,9 +25,12 @@ pc pc (
 );
 
 instruction_cache instruction_cache(
+    .clk(clk),
+    .rst_n(rst_n),
+    .stall(stall),
     .pc(if_id_d.pc),
 
-    .inst(if_id_d.inst)
+    .inst(if_inst)
 );
 
 endmodule

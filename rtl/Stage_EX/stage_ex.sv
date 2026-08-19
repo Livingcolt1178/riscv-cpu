@@ -31,7 +31,7 @@ assign ex_mem_d.inst        = id_ex_q.inst;
 
 assign ex_redirect_pc = ta;
 always_comb begin
-    if((ex_mem_d.op_class == BRANCH && br == 1) || ex_mem_d.op_class == JUMP || ex_mem_d.op_class == JUMPR) begin
+    if(((ex_mem_d.op_class == BRANCH && br == 1) || ex_mem_d.op_class == JUMP || ex_mem_d.op_class == JUMPR) && id_ex_q.valid) begin
         ex_redirect = 1;
     end else begin
         ex_redirect = 0;
@@ -81,7 +81,7 @@ WB_sel_mux WB_sel_mux(
     .op_class(ex_mem_d.op_class),  //cu
     .ta(ta),
 
-    .WBval(ex_mem_d.WBval)
+    .WBval(ex_mem_d.temp_WBval)
 );
 
 endmodule

@@ -21,7 +21,6 @@ module top_lvl_tb;
     test_struct_t spike_struct [0:4999];
     test_struct_t rtl_struct [0:4999];
     localparam int MAX_CYCLES = 5000;
-    localparam int TOHOST = 32'h8000_13F0;  //do not forget to compare against link.ld
     logic [$clog2(MAX_CYCLES)-1 : 0 ] clk_count;
 
     // Instantiate the DUT (Device Under Test)
@@ -60,7 +59,7 @@ module top_lvl_tb;
     //spike absorption
     initial begin
         //opens the complex file from spike
-        dirty_file = $fopen("commit.log","r");
+        dirty_file = $fopen("C:/Users/nrbra/Projects/RISC-V/riscv-cpu/build/commit.log","r");
         if(dirty_file == 0) begin
             $error("Error: Could not open commit.log");
             $finish;
@@ -124,12 +123,12 @@ module top_lvl_tb;
                 rtl_struct[j].hex_instr = dut.mem_wb_q.trace.inst;
                 if(dut.mem_wb_q.wb.we_reg != 0 && dut.mem_wb_q.wb.rd != 0) begin
                     rtl_struct[j].rd = dut.mem_wb_q.wb.rd;
-                    rtl_struct[j].rd_data = dut.mem_wb_q.WBval;
+                    rtl_struct[j].rd_data = dut.WBval;
                 end
-                if(dut.mem_wb_q.trace.op_class == STORE || dut.mem_wb_q.trace.op_class == LOAD) begin
+                if(dut.mem_wb_q.op_class == STORE || dut.mem_wb_q.op_class == LOAD) begin
                     rtl_struct[j].mem_addr = dut.mem_wb_q.trace.alu_out;
                 end
-                if(dut.mem_wb_q.trace.op_class == STORE) begin
+                if(dut.mem_wb_q.op_class == STORE) begin
                     case(dut.mem_wb_q.trace.fct3) //this is due to idealized memory and not having done lane select yet
                         3'b000: rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata[7:0];
                         3'b001: rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata[15:0];
@@ -145,7 +144,7 @@ module top_lvl_tb;
                 check("mem_addr",   spike_struct[j].mem_addr,   rtl_struct[j].mem_addr, j);
                 check("mem_data",   spike_struct[j].mem_data,   rtl_struct[j].mem_data, j);
                 j++;
-                if(dut.mem_wb_q.valid && dut.mem_wb_q.trace.op_class == STORE && dut.mem_wb_q.trace.alu_out == TOHOST) break;                
+                if(dut.mem_wb_q.valid && dut.mem_wb_q.op_class == STORE && dut.mem_wb_q.trace.alu_out == TOHOST) break;                
             end
         end
         clk_count--; //we subtract one at the end because it will always add a clk count before it detects tohost thus adding a cycle that didn't happen.

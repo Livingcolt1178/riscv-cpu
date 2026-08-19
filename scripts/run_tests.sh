@@ -21,7 +21,7 @@ set -uo pipefail
 VIVADO_BIN="${VIVADO_BIN:-/mnt/c/AMDDesignTools/2025.2/Vivado/bin}"
 
 # Test programs, in order. Add new .S files here.
-TESTS=(prog.S prog_nop.S coverage_nop.S coverage.S loaduse.S)
+TESTS=(prog.S prog_nop.S coverage_nop.S coverage.S loaduse.S loads.S flushshadow.S)
 
 TOP=top_lvl_tb          # testbench module name
 SNAPSHOT=tb_sim         # xelab output name
@@ -53,10 +53,10 @@ XSIM="$(wslpath  -w "$VIVADO_BIN/xsim.bat")"
 # Source list. riscv_pkg must compile first — it defines the types everything
 # else imports.
 SOURCES=("$REPO/rtl/riscv_pkg.sv")
-for f in "$REPO"/rtl/*.sv; do
+while IFS= read -r f; do
     [[ "$f" == *riscv_pkg.sv ]] && continue
     SOURCES+=("$f")
-done
+done < <(find "$REPO/rtl" -name '*.sv' | sort)
 SOURCES+=("$REPO/tb/$TOP.sv")
 
 WIN_SOURCES=()
@@ -95,7 +95,7 @@ for test in "${TESTS[@]}"; do
     # not hypothetical: on 2026-08-12 a duplicate enum member broke
     # riscv_pkg.sv, the stale library elaborated, and the suite reported
     # PASS (2/2) on a design containing an uninstantiated forwarding unit.
-    rm -rf "$WORK/xsim.dir/$SNAPSHOT"
+    rm -rf "$WORK/xsim.dir"
 
     # Each tool's exit code is checked. `set -e` would not help — these are
     # bare cmd.exe calls whose status was previously discarded, so a tool

@@ -1,6 +1,7 @@
 import riscv_pkg::*;
 module stage_id (
     input if_id_t if_id_q,
+    input logic [31:0] id_inst,
     input logic [31:0] S1val,
     input logic [31:0] S2val,
 
@@ -12,27 +13,29 @@ logic alu_modifier;
 
 assign id_ex_d.valid    = if_id_q.valid;
 assign id_ex_d.pc       = if_id_q.pc;
-assign id_ex_d.ex.fct3  = if_id_q.inst[14:12];
-assign id_ex_d.mem.fct3 = if_id_q.inst[14:12];
-assign id_ex_d.wb.rd    = if_id_q.inst[11:7];
+assign id_ex_d.ex.fct3  = id_inst[14:12];
+assign id_ex_d.mem.fct3 = id_inst[14:12];
+assign id_ex_d.wb.fct3  = id_inst[14:12];
+assign id_ex_d.wb.rd    = id_inst[11:7];
+assign id_ex_d.wb.lane  = '0;
 assign id_ex_d.S1val    = S1val;
 assign id_ex_d.S2val    = S2val;
-assign id_ex_d.rs1      = if_id_q.inst[19:15];  //used in forwarding
-assign id_ex_d.rs2      = if_id_q.inst[24:20];  //used in forwarding
+assign id_ex_d.rs1      = id_inst[19:15];  //used in forwarding
+assign id_ex_d.rs2      = id_inst[24:20];  //used in forwarding
 
 //trace signals
-assign id_ex_d.inst     = if_id_q.inst;
+assign id_ex_d.inst     = id_inst;
 
 
 build_imm build_imm(
-    .inst(if_id_q.inst),    
+    .inst(id_inst),    
     .format(format),        //internal
     
     .imm(id_ex_d.imm)       
 );
 
 alu_control_unit alu_control_unit (
-    .fct3(if_id_q.inst[14:12]),        
+    .fct3(id_inst[14:12]),        
     .alu_modifier(alu_modifier), //cu
     .op_class(id_ex_d.op_class),
     .format(format),
@@ -41,8 +44,8 @@ alu_control_unit alu_control_unit (
 );
 
 control_unit control_unit(
-    .fct7(if_id_q.inst[31:25]),
-    .opcode(if_id_q.inst[6:0]),
+    .fct7(id_inst[31:25]),
+    .opcode(id_inst[6:0]),
 
     .op_class(id_ex_d.op_class),
     .alu_modifier(alu_modifier),//internal

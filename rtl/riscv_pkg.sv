@@ -1,5 +1,8 @@
 package riscv_pkg;
 
+    parameter string INIT_FILE = "C:/Users/nrbra/Projects/RISC-V/riscv-cpu/build/program.hex";
+    parameter int TOHOST = 32'h8000_13F0;       //do not forget to compare against link.ld
+
     typedef enum logic [2:0] {
         R,
         I,
@@ -56,17 +59,19 @@ package riscv_pkg;
     typedef struct packed {
         logic we_reg;   //need this because the wbvalue must get passed back in due to reg file straddleing id and wb.
         logic [4:0] rd;
+        logic [1:0] lane;
+        logic [2:0] fct3;
     } wb_ctrl_t;
 
     typedef struct packed {
         logic [31:0] inst, alu_out, mem_wdata, pc;
         logic [2:0] fct3;
-        op_class_t op_class;
     } trace_t;
 
     typedef struct packed {
         logic valid;
-        logic [31:0] pc, inst;
+        logic [31:0] pc;
+
     } if_id_t;
     
     typedef struct packed {
@@ -86,7 +91,7 @@ package riscv_pkg;
         logic valid;
         logic [31:0] pc, inst, alu_out;              //carried for verification
         logic [31:0] S2val;  //dies in mem
-        logic [31:0] WBval;  //dies in wb
+        logic [31:0] temp_WBval;  //dies in wb
         op_class_t op_class; //carried for verification
         mem_ctrl_t mem;      //dies in mem
         wb_ctrl_t wb;        //dies in wb
@@ -94,7 +99,8 @@ package riscv_pkg;
 
     typedef struct packed {
         logic valid;
-        logic [31:0] WBval;
+        logic [31:0] temp_WBval;
+        op_class_t op_class;
         wb_ctrl_t wb;
         trace_t trace;
     } mem_wb_t;
