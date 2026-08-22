@@ -48,17 +48,17 @@ logic [31:0] id_inst;
 logic [31:0] WBval;
 (* ASYNC_REG = "TRUE" *) logic rst_n_2, rst_n;
 
-always_ff @(posedge clk) begin
+always_ff @(posedge clk or negedge rst_n_1) begin
     if(!rst_n_1) begin
-        rst_n_2 <= 1;
-        rst_n <= 1;
+        rst_n_2 <= 1'b0;
+        rst_n <= 1'b0;
     end else begin
         rst_n_2 <= rst_n_1;
         rst_n <= rst_n_2;
     end
 end
 
-assign load_use_hazard = (id_ex_q.op_class == LOAD && id_ex_q.wb.rd != 0 && ((id_ex_q.wb.rd == id_inst[19:15]) || (id_ex_q.wb.rd == id_inst[24:20])));
+assign load_use_hazard = if_id_q.valid &&  (id_ex_q.op_class == LOAD && id_ex_q.wb.rd != 0 && ((id_ex_q.wb.rd == id_inst[19:15]) || (id_ex_q.wb.rd == id_inst[24:20])));
 assign stall_if = load_use_hazard;
 
 stage_if stage_if(

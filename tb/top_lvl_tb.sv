@@ -22,11 +22,14 @@ module top_lvl_tb;
     test_struct_t rtl_struct [0:4999];
     localparam int MAX_CYCLES = 5000;
     logic [$clog2(MAX_CYCLES)-1 : 0 ] clk_count;
+    logic led_green;
 
     // Instantiate the DUT (Device Under Test)
     top_lvl dut (
         .clk(clk),
-        .rst_n(rst_n)
+        .rst_n_1(rst_n),
+
+        .led_green(led_green)
     );
 
     // Clock generation
@@ -37,8 +40,8 @@ module top_lvl_tb;
 
     // Reset generation
     initial begin
-        rst_n = 0;
-        #20 rst_n = 1; // Release reset after 20 time units
+        rst_n <= 0;
+        #20 rst_n <= 1; // Release reset after 20 time units
     end
 
     //timeout failsafe
@@ -113,7 +116,7 @@ module top_lvl_tb;
         clk_count = 0;
          
         forever begin
-            wait(rst_n);
+            wait(dut.rst_n);
             @(posedge clk);
             clk_count = clk_count + 1;
             if(dut.mem_wb_q.valid) begin //to allow the pipeline to fill and start retiring before we start the checking
@@ -144,7 +147,10 @@ module top_lvl_tb;
                 check("mem_addr",   spike_struct[j].mem_addr,   rtl_struct[j].mem_addr, j);
                 check("mem_data",   spike_struct[j].mem_data,   rtl_struct[j].mem_data, j);
                 j++;
-                if(dut.mem_wb_q.valid && dut.mem_wb_q.op_class == STORE && dut.mem_wb_q.trace.alu_out == TOHOST) break;                
+                if(dut.mem_wb_q.valid && dut.mem_wb_q.op_class == STORE && dut.mem_wb_q.trace.alu_out == TOHOST) begin
+                    //check("led_green flag", 1, led_green, j);
+                    break;                
+                end
             end
         end
         clk_count--; //we subtract one at the end because it will always add a clk count before it detects tohost thus adding a cycle that didn't happen.
