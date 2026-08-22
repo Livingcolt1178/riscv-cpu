@@ -1,7 +1,6 @@
 import riscv_pkg::*;
 module instruction_cache(
     input logic clk,
-    input logic rst_n,
     input logic stall,
     input logic [31:0] pc,
 

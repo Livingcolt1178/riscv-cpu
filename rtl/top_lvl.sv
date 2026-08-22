@@ -2,7 +2,7 @@
 import riscv_pkg::*;
 module top_lvl(
     input wire clk,
-    input wire rst_n,
+    input wire rst_n_1,
 
     output logic led_green
 );
@@ -46,6 +46,17 @@ logic mem_we_periph;
 logic [31:0] if_inst;
 logic [31:0] id_inst;
 logic [31:0] WBval;
+(* ASYNC_REG = "TRUE" *) logic rst_n_2, rst_n;
+
+always_ff @(posedge clk) begin
+    if(!rst_n_1) begin
+        rst_n_2 <= 1;
+        rst_n <= 1;
+    end else begin
+        rst_n_2 <= rst_n_1;
+        rst_n <= rst_n_2;
+    end
+end
 
 assign load_use_hazard = (id_ex_q.op_class == LOAD && id_ex_q.wb.rd != 0 && ((id_ex_q.wb.rd == id_inst[19:15]) || (id_ex_q.wb.rd == id_inst[24:20])));
 assign stall_if = load_use_hazard;
@@ -65,9 +76,9 @@ stage_if stage_if(
 assign flush_id = ex_redirect; 
 assign stall_id = load_use_hazard;
 
-always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n)          if_id_q <= '0;
-    else if (flush_id)   if_id_q <= '0;
+always_ff @(posedge clk) begin
+    if (!rst_n)          if_id_q.valid <= 0;
+    else if (flush_id)   if_id_q.valid <= 0;
     else if (!stall_id)  if_id_q <= if_id_d;
 end
 
@@ -101,9 +112,9 @@ assign flush_ex = ex_redirect || load_use_hazard;
 assign stall_ex = 1'b0; //waiting on M extenstion
 
 
-always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n)          id_ex_q <= '0;
-    else if (flush_ex)   id_ex_q <= '0;
+always_ff @(posedge clk) begin
+    if (!rst_n)          id_ex_q.valid <= 0;
+    else if (flush_ex)   id_ex_q.valid <= 0;
     else if (!stall_ex)  id_ex_q <= id_ex_d;
 end
 
@@ -138,9 +149,9 @@ stage_ex stage_ex(
 assign flush_mem = 1'b0; //implemented at L5
 assign stall_mem = 1'b0; //implemented at L4
 
-always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n)          ex_mem_q <= '0;
-    else if (flush_mem)   ex_mem_q <= '0;
+always_ff @(posedge clk) begin
+    if (!rst_n)           ex_mem_q.valid <= 0;
+    else if (flush_mem)   ex_mem_q.valid <= 0;
     else if (!stall_mem)  ex_mem_q <= ex_mem_d;
 end
 
@@ -173,9 +184,9 @@ stage_mem stage_mem(
 assign flush_wb = 1'b0; //implemented at L4
 assign stall_wb = 1'b0; // WB never stalls: nothing downstream can block it
 
-always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n)          mem_wb_q <= '0;
-    else if (flush_wb)   mem_wb_q <= '0;
+always_ff @(posedge clk) begin
+    if (!rst_n)          mem_wb_q.valid <= 0;
+    else if (flush_wb)   mem_wb_q.valid <= 0;
     else if (!stall_wb)  mem_wb_q <= mem_wb_d;
 end
 

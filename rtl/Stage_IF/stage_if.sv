@@ -26,7 +26,6 @@ pc pc (
 
 instruction_cache instruction_cache(
     .clk(clk),
-    .rst_n(rst_n),
     .stall(stall),
     .pc(if_id_d.pc),
 

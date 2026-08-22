@@ -34,14 +34,14 @@ WORK="$REPO/build"
 # ---- preflight ------------------------------------------------------------
 # Fail loudly here rather than three steps in with a confusing error.
 for tool in xvlog xelab xsim; do
-    if [[ ! -f "$VIVADO_BIN/$tool.bat" ]]; then
+    if [[ ! -f "$VIVADO_BIN/$tool.bat" ]]; then # what this is saying is: if this exists and is a regular file, then  true, but its inverted so its checking to see if it doesn't exists, if true, report error.
         echo "ERROR: $VIVADO_BIN/$tool.bat not found."
         echo "       Set VIVADO_BIN to your Vivado bin directory, e.g."
         echo "       VIVADO_BIN=/mnt/c/Xilinx/Vivado/2023.2/bin $0"
         exit 2
     fi
 done
-command -v spike   >/dev/null || { echo "ERROR: spike not on PATH";   exit 2; }
+command -v spike   >/dev/null || { echo "ERROR: spike not on PATH";   exit 2; } #this short hands so that means that if the first half is true, it doesn't execute the later half, but if its false, then it exectues the latter half.
 command -v riscv-none-elf-gcc >/dev/null || { echo "ERROR: riscv-none-elf-gcc not on PATH"; exit 2; }
 
 # WSL can't execute .bat directly (it's not a PE binary), so everything goes
@@ -54,9 +54,9 @@ XSIM="$(wslpath  -w "$VIVADO_BIN/xsim.bat")"
 # else imports.
 SOURCES=("$REPO/rtl/riscv_pkg.sv")
 while IFS= read -r f; do
-    [[ "$f" == *riscv_pkg.sv ]] && continue
-    SOURCES+=("$f")
-done < <(find "$REPO/rtl" -name '*.sv' | sort)
+    [[ "$f" == *riscv_pkg.sv ]] && continue # if the file its looking at is the riscv_pkg, that first part is true, so it continues on and skips the file.
+    SOURCES+=("$f")                         # adds all other files
+done < <(find "$REPO/rtl" -name '*.sv' | sort) # <<  is a process substitution, makes a command's output look like a file the loop reads from.
 SOURCES+=("$REPO/tb/$TOP.sv")
 
 WIN_SOURCES=()
@@ -79,7 +79,7 @@ for test in "${TESTS[@]}"; do
     # .S file and the run would silently test the wrong program.
     make -C "$SW" clean >/dev/null 2>&1
 
-    if ! make -C "$SW" SRC="$test" program.hex commit.log > "$log" 2>&1; then
+    if ! make -C "$SW" SRC="$test" program.hex commit.log > "$log" 2>&1; then       #this is checking to see if commit.log was going into the log and the the 2>&1 sends the errors there too.
         echo "  build FAILED — see $log"
         RESULTS+=("FAIL  $test  (build)")
         FAILURES=$((FAILURES + 1))
