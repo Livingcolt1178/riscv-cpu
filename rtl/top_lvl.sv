@@ -58,7 +58,7 @@ always_ff @(posedge clk or negedge rst_n_1) begin
     end
 end
 
-assign load_use_hazard = if_id_q.valid &&  (id_ex_q.op_class == LOAD && id_ex_q.wb.rd != 0 && ((id_ex_q.wb.rd == id_inst[19:15]) || (id_ex_q.wb.rd == id_inst[24:20])));
+assign load_use_hazard = id_ex_q.valid && (id_ex_q.op_class == LOAD && id_ex_q.wb.rd != 0 && ((id_ex_q.wb.rd == id_inst[19:15]) || (id_ex_q.wb.rd == id_inst[24:20])));
 assign stall_if = load_use_hazard;
 
 stage_if stage_if(

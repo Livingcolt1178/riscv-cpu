@@ -22,14 +22,11 @@ module top_lvl_tb;
     test_struct_t rtl_struct [0:4999];
     localparam int MAX_CYCLES = 5000;
     logic [$clog2(MAX_CYCLES)-1 : 0 ] clk_count;
-    logic led_green;
 
     // Instantiate the DUT (Device Under Test)
     top_lvl dut (
         .clk(clk),
-        .rst_n_1(rst_n),
-
-        .led_green(led_green)
+        .rst_n_1(rst_n)
     );
 
     // Clock generation
@@ -40,8 +37,8 @@ module top_lvl_tb;
 
     // Reset generation
     initial begin
-        rst_n <= 0;
-        #20 rst_n <= 1; // Release reset after 20 time units
+        rst_n = 0;
+        #20 rst_n = 1; // Release reset after 20 time units
     end
 
     //timeout failsafe
@@ -139,7 +136,7 @@ module top_lvl_tb;
                         default:rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata;
                     endcase
                 end 
-
+                $display("[%0d] retire pc=%h inst=%h", clk_count, dut.mem_wb_q.trace.pc, dut.mem_wb_q.trace.inst);
                 check("pc",         spike_struct[j].pc,         rtl_struct[j].pc,       j);
                 check("hex_instr",  spike_struct[j].hex_instr,  rtl_struct[j].hex_instr,j);
                 check("rd",         spike_struct[j].rd,         rtl_struct[j].rd,       j);
@@ -147,10 +144,7 @@ module top_lvl_tb;
                 check("mem_addr",   spike_struct[j].mem_addr,   rtl_struct[j].mem_addr, j);
                 check("mem_data",   spike_struct[j].mem_data,   rtl_struct[j].mem_data, j);
                 j++;
-                if(dut.mem_wb_q.valid && dut.mem_wb_q.op_class == STORE && dut.mem_wb_q.trace.alu_out == TOHOST) begin
-                    //check("led_green flag", 1, led_green, j);
-                    break;                
-                end
+                if(dut.mem_wb_q.valid && dut.mem_wb_q.op_class == STORE && dut.mem_wb_q.trace.alu_out == TOHOST) break;                
             end
         end
         clk_count--; //we subtract one at the end because it will always add a clk count before it detects tohost thus adding a cycle that didn't happen.

@@ -21,7 +21,7 @@ module pc(
         end
     end
 
-    always_ff @(posedge clk) begin : blockName
+    always_ff @( posedge clk) begin : blockName
         if (!rst_n) begin
             pc_out <= 32'h8000_0000; 
         end else if(stall) begin
