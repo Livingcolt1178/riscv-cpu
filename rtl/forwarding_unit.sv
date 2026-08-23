@@ -1,5 +1,5 @@
 import riscv_pkg::*;
-
+`timescale 1ns/1ps
 module forwarding_unit (
     input logic [4:0] id_S1reg,
     input logic [4:0] id_S2reg,

@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 import riscv_pkg::*;
 module stage_mem (
     input ex_mem_t ex_mem_q,

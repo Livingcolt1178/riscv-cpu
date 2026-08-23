@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 import riscv_pkg::*;
 module stage_ex (
     input id_ex_t id_ex_q,

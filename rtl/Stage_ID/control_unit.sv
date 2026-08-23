@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 import riscv_pkg::*;
 module control_unit(
     input logic [6:0] fct7,

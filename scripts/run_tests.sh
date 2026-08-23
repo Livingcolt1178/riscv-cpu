@@ -21,7 +21,15 @@ set -uo pipefail
 VIVADO_BIN="${VIVADO_BIN:-/mnt/c/AMDDesignTools/2025.2/Vivado/bin}"
 
 # Test programs, in order. Add new .S files here.
-TESTS=(prog.S prog_nop.S coverage_nop.S coverage.S loaduse.S loads.S flushshadow.S)
+TESTS=(prog.S prog_nop.S coverage_nop.S coverage.S loaduse.S loads.S flushshadow.S hwtest.S)
+
+# Programs that perform a peripheral store and are therefore expected to leave
+# led_green asserted. Everything else is a hazard/ISA test with no MMIO write,
+# so asserting on the LED there would fail a correct design. Membership here
+# drives +expect_led into the simulation; the testbench guards its LED check
+# with $test$plusargs("expect_led"). prog_nop.S is pad.py's expansion of
+# prog.S, so it inherits the store.
+LED_TESTS=(prog.S prog_nop.S hwtest.S)
 
 TOP=top_lvl_tb          # testbench module name
 SNAPSHOT=tb_sim         # xelab output name
@@ -131,7 +139,13 @@ for test in "${TESTS[@]}"; do
         continue
     fi
 
-    if ! cmd.exe /c "$XSIM" "$SNAPSHOT" -R >> "$log" 2>&1; then
+    # +expect_led only for programs that actually write the peripheral window.
+    PLUSARGS=()
+    for led_test in "${LED_TESTS[@]}"; do
+        [[ "$test" == "$led_test" ]] && PLUSARGS=(-testplusarg expect_led) && break
+    done
+
+    if ! cmd.exe /c "$XSIM" "$SNAPSHOT" -R "${PLUSARGS[@]+"${PLUSARGS[@]}"}" >> "$log" 2>&1; then
         echo "  FAIL — xsim (simulate)"
         grep -E "^ERROR|Fatal" "$log" | head -5 | sed 's/^/    /'
         RESULTS+=("FAIL  $test  (xsim)")

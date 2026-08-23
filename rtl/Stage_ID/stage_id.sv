@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 import riscv_pkg::*;
 module stage_id (
     input if_id_t if_id_q,
@@ -17,7 +18,7 @@ assign id_ex_d.ex.fct3  = id_inst[14:12];
 assign id_ex_d.mem.fct3 = id_inst[14:12];
 assign id_ex_d.wb.fct3  = id_inst[14:12];
 assign id_ex_d.wb.rd    = id_inst[11:7];
-assign id_ex_d.wb.lane  = '0;
+assign id_ex_d.wb.lane  = '0;               // overwritten in stage_mem
 assign id_ex_d.S1val    = S1val;
 assign id_ex_d.S2val    = S2val;
 assign id_ex_d.rs1      = id_inst[19:15];  //used in forwarding

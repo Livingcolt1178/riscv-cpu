@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 module stage_wb(
 input mem_wb_t mem_wb_q,
 input logic [31:0] dmem_in,

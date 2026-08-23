@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 package riscv_pkg;
 
     parameter string INIT_FILE = "C:/Users/nrbra/Projects/RISC-V/riscv-cpu/build/program.hex";

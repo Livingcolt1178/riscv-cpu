@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 module LED_IO(
     input logic clk,
     input logic rst_n,
@@ -13,7 +14,10 @@ always_ff @(posedge clk) begin
     end else begin
         if(we_periph && mem_in != 0) begin
             led_green <= 1;
+        end else if (we_periph && mem_in == 0) begin
+            led_green <= 0;
         end
+        
     end
 
 end

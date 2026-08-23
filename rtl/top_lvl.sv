@@ -1,8 +1,9 @@
+`timescale 1ns/1ps
 `default_nettype none //prevents me from forgetting to declare a wire
 import riscv_pkg::*;
 module top_lvl(
     input wire clk,
-    input wire rst_n_1,
+    input wire rst_n_in,
 
     output logic led_green
 );
@@ -46,15 +47,15 @@ logic mem_we_periph;
 logic [31:0] if_inst;
 logic [31:0] id_inst;
 logic [31:0] WBval;
-(* ASYNC_REG = "TRUE" *) logic rst_n_2, rst_n;
+(* ASYNC_REG = "TRUE" *) logic rst_n_1, rst_n;
 
-always_ff @(posedge clk or negedge rst_n_1) begin
-    if(!rst_n_1) begin
-        rst_n_2 <= 1'b0;
+always_ff @(posedge clk or negedge rst_n_in) begin
+    if(!rst_n_in) begin
+        rst_n_1 <= 1'b0;
         rst_n <= 1'b0;
     end else begin
-        rst_n_2 <= rst_n_1;
-        rst_n <= rst_n_2;
+        rst_n_1 <= rst_n_in;
+        rst_n <= rst_n_1;
     end
 end
 
@@ -156,6 +157,7 @@ always_ff @(posedge clk) begin
 end
 
 MMIO_unit MMIO_unit(
+    .valid(ex_mem_q.valid),
     .mem_addr(ex_mem_q.alu_out),    //this is the memory address, if its in a certain area its directed to a mmio
     .we(ex_mem_q.mem.we_mem),       //this tells us if the action involves writing, if it doesn't this does nothing
 

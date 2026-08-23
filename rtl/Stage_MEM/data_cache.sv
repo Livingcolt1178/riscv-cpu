@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 import riscv_pkg::*;
 module data_cache #(parameter int DEPTH = 512) (
     input logic clk,

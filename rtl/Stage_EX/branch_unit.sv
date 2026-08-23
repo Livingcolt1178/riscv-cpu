@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 module branch_unit(
 input logic [31:0] alu_out,
 input logic [2:0] fct3,
