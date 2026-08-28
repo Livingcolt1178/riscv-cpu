@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 import riscv_pkg::*;
 module alu_control_unit (
     input logic [2:0] fct3,

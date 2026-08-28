@@ -21,7 +21,15 @@ set -uo pipefail
 VIVADO_BIN="${VIVADO_BIN:-/mnt/c/AMDDesignTools/2025.2/Vivado/bin}"
 
 # Test programs, in order. Add new .S files here.
-TESTS=(prog.S prog_nop.S coverage_nop.S coverage.S loaduse.S)
+TESTS=(prog.S prog_nop.S coverage_nop.S coverage.S loaduse.S loads.S flushshadow.S hwtest.S)
+
+# Programs that perform a peripheral store and are therefore expected to leave
+# led_green asserted. Everything else is a hazard/ISA test with no MMIO write,
+# so asserting on the LED there would fail a correct design. Membership here
+# drives +expect_led into the simulation; the testbench guards its LED check
+# with $test$plusargs("expect_led"). prog_nop.S is pad.py's expansion of
+# prog.S, so it inherits the store.
+LED_TESTS=(prog.S prog_nop.S hwtest.S)
 
 TOP=top_lvl_tb          # testbench module name
 SNAPSHOT=tb_sim         # xelab output name
@@ -34,14 +42,14 @@ WORK="$REPO/build"
 # ---- preflight ------------------------------------------------------------
 # Fail loudly here rather than three steps in with a confusing error.
 for tool in xvlog xelab xsim; do
-    if [[ ! -f "$VIVADO_BIN/$tool.bat" ]]; then
+    if [[ ! -f "$VIVADO_BIN/$tool.bat" ]]; then # what this is saying is: if this exists and is a regular file, then  true, but its inverted so its checking to see if it doesn't exists, if true, report error.
         echo "ERROR: $VIVADO_BIN/$tool.bat not found."
         echo "       Set VIVADO_BIN to your Vivado bin directory, e.g."
         echo "       VIVADO_BIN=/mnt/c/Xilinx/Vivado/2023.2/bin $0"
         exit 2
     fi
 done
-command -v spike   >/dev/null || { echo "ERROR: spike not on PATH";   exit 2; }
+command -v spike   >/dev/null || { echo "ERROR: spike not on PATH";   exit 2; } #this short hands so that means that if the first half is true, it doesn't execute the later half, but if its false, then it exectues the latter half.
 command -v riscv-none-elf-gcc >/dev/null || { echo "ERROR: riscv-none-elf-gcc not on PATH"; exit 2; }
 
 # WSL can't execute .bat directly (it's not a PE binary), so everything goes
@@ -53,10 +61,10 @@ XSIM="$(wslpath  -w "$VIVADO_BIN/xsim.bat")"
 # Source list. riscv_pkg must compile first — it defines the types everything
 # else imports.
 SOURCES=("$REPO/rtl/riscv_pkg.sv")
-for f in "$REPO"/rtl/*.sv; do
-    [[ "$f" == *riscv_pkg.sv ]] && continue
-    SOURCES+=("$f")
-done
+while IFS= read -r f; do
+    [[ "$f" == *riscv_pkg.sv ]] && continue # if the file its looking at is the riscv_pkg, that first part is true, so it continues on and skips the file.
+    SOURCES+=("$f")                         # adds all other files
+done < <(find "$REPO/rtl" -name '*.sv' | sort) # <<  is a process substitution, makes a command's output look like a file the loop reads from.
 SOURCES+=("$REPO/tb/$TOP.sv")
 
 WIN_SOURCES=()
@@ -79,7 +87,7 @@ for test in "${TESTS[@]}"; do
     # .S file and the run would silently test the wrong program.
     make -C "$SW" clean >/dev/null 2>&1
 
-    if ! make -C "$SW" SRC="$test" program.hex commit.log > "$log" 2>&1; then
+    if ! make -C "$SW" SRC="$test" program.hex commit.log > "$log" 2>&1; then       #this is checking to see if commit.log was going into the log and the the 2>&1 sends the errors there too.
         echo "  build FAILED — see $log"
         RESULTS+=("FAIL  $test  (build)")
         FAILURES=$((FAILURES + 1))
@@ -95,7 +103,7 @@ for test in "${TESTS[@]}"; do
     # not hypothetical: on 2026-08-12 a duplicate enum member broke
     # riscv_pkg.sv, the stale library elaborated, and the suite reported
     # PASS (2/2) on a design containing an uninstantiated forwarding unit.
-    rm -rf "$WORK/xsim.dir/$SNAPSHOT"
+    rm -rf "$WORK/xsim.dir"
 
     # Each tool's exit code is checked. `set -e` would not help — these are
     # bare cmd.exe calls whose status was previously discarded, so a tool
@@ -131,7 +139,13 @@ for test in "${TESTS[@]}"; do
         continue
     fi
 
-    if ! cmd.exe /c "$XSIM" "$SNAPSHOT" -R >> "$log" 2>&1; then
+    # +expect_led only for programs that actually write the peripheral window.
+    PLUSARGS=()
+    for led_test in "${LED_TESTS[@]}"; do
+        [[ "$test" == "$led_test" ]] && PLUSARGS=(-testplusarg expect_led) && break
+    done
+
+    if ! cmd.exe /c "$XSIM" "$SNAPSHOT" -R "${PLUSARGS[@]+"${PLUSARGS[@]}"}" >> "$log" 2>&1; then
         echo "  FAIL — xsim (simulate)"
         grep -E "^ERROR|Fatal" "$log" | head -5 | sed 's/^/    /'
         RESULTS+=("FAIL  $test  (xsim)")

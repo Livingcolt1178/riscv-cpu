@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 import riscv_pkg::*;
 module target_address_constructor(
 input logic [31:0] imm,

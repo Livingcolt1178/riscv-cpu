@@ -8,15 +8,21 @@ Spartan Edge Accelerator (`xc7s15ftgb196-1`).
 $ ./scripts/run_tests.sh
   PASS  prog.S          rtl tests:   9, spike tests:   9, CPI: 1.556
   PASS  prog_nop.S      rtl tests:  23, spike tests:  23, CPI: 1.217
-  PASS  coverage_nop.S  rtl tests: 271, spike tests: 271, CPI: 1.114
-  PASS  coverage.S      rtl tests:  99, spike tests:  99, CPI: 1.313
+  PASS  coverage_nop.S  rtl tests: 287, spike tests: 287, CPI: 1.136
+  PASS  coverage.S      rtl tests: 107, spike tests: 107, CPI: 1.364
   PASS  loaduse.S       rtl tests:  85, spike tests:  85, CPI: 1.412
-REGRESSION: PASS (5/5)
+  PASS  loads.S         rtl tests:  42, spike tests:  42, CPI: 1.071
+  PASS  flushshadow.S   rtl tests:  35, spike tests:  35, CPI: 1.600
+REGRESSION: PASS (7/7)
 ```
 
 **Status: L3 complete** (`l3-complete`). The pipeline executes the implemented RV32I
 subset and matches Spike at every retirement, with control *and* data hazards resolved
 in hardware — no NOP padding required.
+
+**L2 in progress.** The design implements on the target part and **meets timing at
+50 MHz** (WNS +0.215 ns, WHS +0.029 ns, zero failing endpoints) with the regression green.
+L2 is *not* complete: nothing has run on hardware yet. No bitstream, no board.
 
 ---
 
@@ -29,7 +35,7 @@ in hardware — no NOP padding required.
 | Control hazards — branch, JAL, JALR | ✅ flushed in hardware, 2-cycle penalty |
 | Data hazards — EX/MEM and MEM/WB forwarding | ✅ |
 | Load-use hazard — one-cycle interlock | ✅ |
-| Synthesis / timing closure | ❌ L2 |
+| Synthesis / implementation, timing met at 50 MHz | 🟡 in simulation only — not yet on hardware |
 | M extension, caches, CSRs and traps | ❌ M / L4 / L5 |
 
 
@@ -139,7 +145,7 @@ need its own stall and flush arms kept in agreement forever, and when they diver
 harness would report a plausible mismatch on plausible data with no signal that it was
 lying.
 
-`sw/coverage.S` is 108 instructions and retires 99, covering 34 of the 37 base integer
+`sw/coverage.S` retires 107, covering 34 of the 37 base integer
 instructions under three constraints: every load is preceded by a store (the core has no
 initialised data memory), halfword accesses stay aligned, and every path reaches the
 `tohost` store.
@@ -161,9 +167,56 @@ being one edge of sampling lag. That the stall term lands exactly on the number 
 distance-1 pairs in the program makes CPI a second, independent witness that the interlock
 fires when it should and only when it should.
 
-Quote **1.31** — `coverage.S`, real code with hazards resolved in hardware. `prog.S` at
+Quote **1.36** — `coverage.S`, real code with hazards resolved in hardware. `prog.S` at
 1.56 is nine instructions against four cycles of fill and is measuring pipeline depth, not
 the design.
+
+---
+
+## Implementation
+
+Vivado 2025.2, `xc7s15ftgb196-1`, speed grade −1, design state Routed. **Simulation and
+implementation only — this has not been on hardware.**
+
+| | |
+|---|---|
+| Core clock | 50 MHz (20.000 ns) |
+| WNS / WHS / WPWS | +0.215 ns / +0.029 ns / +4.500 ns |
+| Failing endpoints | 0 of 1465 |
+| LUT / FF / BRAM | 1261 (16%) / 384 (2%) / 1 (10%) |
+
+The board oscillator is 100 MHz. `rtl/FPGA_top.sv` divides it by two in fabric and buffers
+the result onto a global clock network; `top_lvl` stays clock-agnostic so the testbench,
+which instantiates it directly and drives `clk`, needs no knowledge of any of this.
+
+```tcl
+create_clock -name clk -period 10.000 [get_ports clk_100]
+create_generated_clock -name clk_in -source [get_ports clk_100] -divide_by 2 [get_pins bufg_core/O]
+```
+
+An MMCM would be required for an arbitrary frequency; 50 MHz is 100 divided by an integer,
+so it isn't. The cost of the fabric divider is hold margin — the clock now passes through
+two cascaded BUFGs, roughly doubling insertion delay to 2.4–3.3 ns, which widens the
+launch/capture divergence hold analysis sees. WHS +0.029 ns is met but thin, on a
+zero-logic-level path (`ex_mem_q[temp_WBval]` → `mem_wb_q[temp_WBval]`) where there is no
+logic delay to absorb skew. An MMCM's feedback loop compensates insertion delay and is the
+fix if that ever goes negative.
+
+### The critical path
+
+```
+data_cache BRAM output → stage_wb (variable shift by lane, sign-extend)
+  → WBval → reg_file write-first bypass → id_ex_q.S1val
+```
+
+That is the writeback-to-decode bypass — structurally the longest path in a 5-stage machine
+and the one that sets the clock in the textbook treatment. It is where it is supposed to be.
+
+**50 MHz is a constraint met, not an Fmax measured.** The path measures 15.991 ns; against a
+20 ns budget that should leave 4 ns of slack rather than 0.2. It doesn't, because the placer
+and router optimize toward the constraint and stop. Achievable frequency under a tight
+constraint is closer to 62 MHz. Measuring that properly means bypassing the divide-by-2 in
+constraints, since the physical clock can only be 100 or 50.
 
 ---
 
@@ -172,8 +225,8 @@ the design.
 | | |
 |---|---|
 | Link address / reset vector | `0x8000_0000` |
-| Instruction memory | 1024 words, partial decode |
-| Data memory | 256 words, partial decode |
+| Instruction memory | 512 words, partial decode |
+| Data memory | 512 words, partial decode |
 | `tohost` / `fromhost` | `0x8000_13F0` / `0x8000_13F8` |
 
 Both memories decode only the low address bits, folding the `0x8000_0000` window down to
@@ -204,8 +257,8 @@ All three trap in real RV32I and are deferred to L5:
 | **L1** — single-cycle RV32I vs Spike | ✅ `l1-complete` |
 | **L3a** — pipeline, hazards deferred by padding | ✅ `l3a-complete` |
 | **L3b** — forwarding + load-use interlock | ✅ `l3-complete` |
-| **M** — multiply/divide (multi-cycle EX) | ← next |
-| **L2** — synthesis and timing closure | |
+| **L2** — synthesis and timing closure | 🟡 timing met at 50 MHz in sim; hardware pending |
+| **M** — multiply/divide (multi-cycle EX) | ← after L2 |
 | **L4** — caches | |
 | **L5** — CSRs, traps, privileged modes | |
 

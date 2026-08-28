@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 import riscv_pkg::*;
 module pc(
     input logic clk,
@@ -21,7 +22,7 @@ module pc(
         end
     end
 
-    always_ff @( posedge clk or negedge rst_n) begin : blockName
+    always_ff @( posedge clk) begin : blockName
         if (!rst_n) begin
             pc_out <= 32'h8000_0000; 
         end else if(stall) begin

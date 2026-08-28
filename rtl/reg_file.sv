@@ -1,6 +1,8 @@
+`timescale 1ns/1ps
 module reg_file(
     input logic clk,
     
+    input logic valid,
     input logic we,
     input logic [4:0] S2reg,
     input logic [4:0] S1reg,
@@ -35,7 +37,7 @@ module reg_file(
 
 
     always_ff @(posedge clk) begin
-        if(wr_en) begin
+        if(wr_en && valid) begin
             regs[WBreg] <= WBval;
         end 
     end
