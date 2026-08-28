@@ -22,7 +22,10 @@ in hardware — no NOP padding required.
 
 **L2 in progress.** The design implements on the target part and **meets timing at
 50 MHz** (WNS +0.215 ns, WHS +0.029 ns, zero failing endpoints) with the regression green.
-L2 is *not* complete: nothing has run on hardware yet. No bitstream, no board.
+L2 is *not* complete: It has been ran on hardware, and the LED Lights up upon sending data to the IO section of the memory.
+However, I am in deliberation on whether to wait till UART is implemented to declare L2 done, as that was the original goal.
+But with up comming Interview Season, I have decided to focus on my C skills and with this running on hardware, this is a good pausing point.
+
 
 ---
 
@@ -35,7 +38,7 @@ L2 is *not* complete: nothing has run on hardware yet. No bitstream, no board.
 | Control hazards — branch, JAL, JALR | ✅ flushed in hardware, 2-cycle penalty |
 | Data hazards — EX/MEM and MEM/WB forwarding | ✅ |
 | Load-use hazard — one-cycle interlock | ✅ |
-| Synthesis / implementation, timing met at 50 MHz | 🟡 in simulation only — not yet on hardware |
+| Synthesis / implementation, runs on 50 MHZ, with a theoretical limit of ~62 MHZ | ✅ |
 | M extension, caches, CSRs and traps | ❌ M / L4 / L5 |
 
 
