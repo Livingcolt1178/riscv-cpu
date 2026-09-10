@@ -25,7 +25,7 @@ pc pc (
     .pc_out(if_id_d.pc)
 );
 
-instruction_cache instruction_cache(
+instruction_mem instruction_mem(
     .clk(clk),
     .stall(stall),
     .pc(if_id_d.pc),

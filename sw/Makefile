@@ -58,12 +58,7 @@ sim: program.hex commit.log
 	@test -d $(SIMDIR) || { echo "SIMDIR missing: $(SIMDIR) — run scripts/build_project.tcl first"; exit 1; }
 	cp program.hex commit.log $(SIMDIR)/
 
-# The bitstream's instruction ROM is initialised from build/program.hex via
-# INIT_FILE in riscv_pkg.sv, read by $readmemh at elaboration/synthesis.
-# run_tests.sh rewrites that file once per test and leaves the LAST test in it,
-# so synthesising straight after a regression bakes flushshadow.S into the FPGA
-# and the LED never lights no matter how correct the core is.
-#
+
 # Run this immediately before generating a bitstream, and do not run the
 # regression in between.
 BITSTREAM_SRC ?= hwtest.S

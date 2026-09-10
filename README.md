@@ -12,20 +12,39 @@ $ ./scripts/run_tests.sh
   PASS  coverage.S      rtl tests: 107, spike tests: 107, CPI: 1.364
   PASS  loaduse.S       rtl tests:  85, spike tests:  85, CPI: 1.412
   PASS  loads.S         rtl tests:  42, spike tests:  42, CPI: 1.071
-  PASS  flushshadow.S   rtl tests:  35, spike tests:  35, CPI: 1.600
-REGRESSION: PASS (7/7)
+  PASS  flushshadow.S   rtl tests:  40, spike tests:  40, CPI: 1.575
+  PASS  hwtest.S        verdict driven onto led_green, LED: lit
+REGRESSION: PASS (8/8)
 ```
+
+Captured 2026-09-09 with case 7 of `sw/flushshadow.S` in place. Case 7 reads the shadow
+instruction's destination register three instructions past the branch target, which is the
+distance the earlier cases do not reach. It failed on the first run at retirement 35, reading
+0x66 where 0xAA was architecturally correct, and passes now that `valid` is folded into
+`wr_en` in `reg_file.sv`.
+
+`hwtest.S` is the program the bitstream carries. It runs a spread of the datapath, accumulates
+a pass/fail verdict in one register and stores that verdict to the peripheral window, so the LED
+is the whole output on the board. It also runs under the regression, where a failure says which
+check and on what cycle instead of just going dark.
 
 **Status: L3 complete** (`l3-complete`). The pipeline executes the implemented RV32I
 subset and matches Spike at every retirement, with control *and* data hazards resolved
-in hardware — no NOP padding required.
+in hardware, so no NOP padding is required.
 
-**L2 in progress.** The design implements on the target part and **meets timing at
-50 MHz** (WNS +0.215 ns, WHS +0.029 ns, zero failing endpoints) with the regression green.
-L2 is *not* complete: It has been ran on hardware, and the LED Lights up upon sending data to the IO section of the memory.
-However, I am in deliberation on whether to wait till UART is implemented to declare L2 done, as that was the original goal.
-But with up comming Interview Season, I have decided to focus on my C skills and with this running on hardware, this is a good pausing point.
+**L2: complete** (`l2-complete`). The design implements on `xc7s15ftgb196-1` and **meets timing at
+50 MHz** (WNS +0.215 ns, WHS +0.029 ns, zero failing endpoints out of 1465 setup and 1465 hold)
+with the regression green. The bitstream loads over the onboard ESP32 via SPI, `sw/hwtest.S`
+executes on the part, and a store to the peripheral window lights `led_green` and keeps it lit.
 
+I closed L2 on 2026-09-10. The SPEC's *Done* criterion is "synthesizes and implements on a named
+part, meets timing at a stated frequency, and still passes the testbench in simulation," and all
+three are satisfied, with the peripheral store on the board as the observable proof. When I wrote
+the level I had a UART and a character in a terminal in mind, but that was never what the document
+asked for, and this board gives me no output path wide enough to make it the bar. The simple goal 
+was that the cpu was implemented and programmed on the board. The best way to confirmed it worked
+was a simple mmio led light. The UART has been delayed due to shifting proities in projects and 
+school work.
 
 ---
 
@@ -38,7 +57,8 @@ But with up comming Interview Season, I have decided to focus on my C skills and
 | Control hazards — branch, JAL, JALR | ✅ flushed in hardware, 2-cycle penalty |
 | Data hazards — EX/MEM and MEM/WB forwarding | ✅ |
 | Load-use hazard — one-cycle interlock | ✅ |
-| Synthesis / implementation, runs on 50 MHZ, with a theoretical limit of ~62 MHZ | ✅ |
+| Synthesis and implementation, timing met at 50 MHz on an xc7s15 | ✅ |
+| Runs from a bitstream on the board, LED driven from a peripheral store | ✅ |
 | M extension, caches, CSRs and traps | ❌ M / L4 / L5 |
 
 
@@ -68,8 +88,7 @@ unpadded variants disagree and the pair localises the fault. They cost nothing t
 
 Worth stating precisely, because it isn't obvious: **padding never could fix *control*
 hazards.** NOPs behind a taken branch are architecturally harmless but they still
-*retire*, and Spike — implementing RISC-V, which has no delay slots — never executes
-them. The retirement streams diverge and lockstep desynchronises. That is why branches
+*retire*, and Spike, which implements RISC-V and has no delay slots, never executes them. The retirement streams diverge and lockstep desynchronises. That is why branches
 were flushed in hardware from L3a onward rather than padded.
 
 ---
@@ -77,7 +96,7 @@ were flushed in hardware from L3a onward rather than padded.
 ## Layout
 
 ```
-rtl/        SystemVerilog sources — four stage wrappers over leaf modules
+rtl/        SystemVerilog sources — five stage wrappers over leaf modules
 tb/         Lockstep testbench
 sw/         Test programs, padding generator, linker script
 scripts/    run_tests.sh — the regression
@@ -85,16 +104,31 @@ build/      Simulation scratch — gitignored
 vivado/     Generated project — gitignored, do not commit
 ```
 
-There is no `stage_wb`. The writeback value is selected in EX for everything except loads
-and in MEM for those, so `mem_wb_q.WBval` is the final value by the time it reaches WB and
-the stage collapses to the register-file write port. That is not tidiness — it is what
-makes the MEM/WB forward source a single field, which makes it structurally impossible for
-the value that gets forwarded to disagree with the value that gets written.
+`stage_wb` exists, and it did not always. The writeback value is selected in EX for
+everything except loads, so for most instructions `mem_wb_q.temp_WBval` is already final by
+the time it reaches WB. Loads are the exception: the block RAM hands back a whole word, and
+the lane shift and sign extension have to happen somewhere. That work is `rtl/stage_wb.sv`,
+and the block-RAM migration is what created the need for it.
+
+The property I care about here survived that change, and it moved. It used to rest on
+`mem_wb_q.WBval` being a single field in the pipeline register. It now rests on `WBval` being
+a single net: `stage_wb` drives it combinationally in one `assign`, and both consumers read
+that same net — `reg_file`'s write port at `top_lvl.sv:96` and the MEM/WB forward source at
+`top_lvl.sv:141`. So the value that gets forwarded still cannot disagree with the value that
+gets written, because there is only one value.
+
+What changed is what the property depends on. A field in a register is singular no matter what
+anyone does downstream. A net is singular only while nothing re-times it, and §4.4 of the
+project page floats putting a flop between the block RAM output and the bypass to shorten the
+critical path. That change would give the write port and the forward source different arrival
+times and this guarantee would go with it. If I make it, the forwarding path needs re-deriving
+first, not after.
 
 Pipeline registers are packed structs (`if_id_t`, `id_ex_t`, `ex_mem_t`, `mem_wb_t`) in
 `rtl/riscv_pkg.sv`, with control bundles (`ex_ctrl_t`, `mem_ctrl_t`, `wb_ctrl_t`) nested
 inside them so the taper is enforced by the type system rather than remembered. All four
-flops live in `top_lvl.sv`, so the entire stall and flush policy is eight adjacent lines.
+pipeline registers live in `top_lvl.sv`, five stages needing four boundaries between them, so
+the entire stall and flush policy is eight adjacent lines.
 
 A zeroed register struct is a NOP bubble — `NOP` is enum 0, both write-enables are 0, and
 `valid` is 0 — which makes reset, flush, and the retire signal (`mem_wb_q.valid`) fall out
@@ -127,13 +161,13 @@ stale `commit.log`.
 
 ## Verification
 
-Spike is the golden reference — an architectural simulator with no notion of pipeline,
+Spike is the golden reference, an architectural simulator with no notion of pipeline,
 cache, or clock. Its value is independence: expected values come from software written by
 other people from the spec, not from the same understanding that produced the RTL.
 
 The testbench parses `spike --log-commits` and compares **per retirement**, not per cycle.
 It advances only when `mem_wb_q.valid` is high, so pipeline fill, flushes and stalls need
-no special handling — the testbench never learns how deep the pipeline is.
+no special handling, and the testbench never learns how deep the pipeline is.
 
 Six fields are compared at the MEM/WB boundary, ordered cheapest-to-interpret first so
 that the earliest failure is the most localising one:
@@ -148,7 +182,7 @@ need its own stall and flush arms kept in agreement forever, and when they diver
 harness would report a plausible mismatch on plausible data with no signal that it was
 lying.
 
-`sw/coverage.S` retires 107, covering 34 of the 37 base integer
+`sw/coverage.S` retires 107, covering all 37 base integer
 instructions under three constraints: every load is preceded by a store (the core has no
 initialised data memory), halfword accesses stay aligned, and every path reaches the
 `tohost` store.
@@ -178,8 +212,11 @@ the design.
 
 ## Implementation
 
-Vivado 2025.2, `xc7s15ftgb196-1`, speed grade −1, design state Routed. **Simulation and
-implementation only — this has not been on hardware.**
+Vivado 2025.2, `xc7s15ftgb196-1`, speed grade −1, design state Routed. The numbers below are
+from the routed `FPGA_top` build measured on 2026-08-22, and that same build is what runs on the
+board. Utilization was read off the pre-wrapper `top_lvl` build; the divider and BUFG add about
+one flop and one BUFG on top of it, which is why the LUT and FF figures here and in my
+measurement notes differ slightly.
 
 | | |
 |---|---|
@@ -198,7 +235,7 @@ create_generated_clock -name clk_in -source [get_ports clk_100] -divide_by 2 [ge
 ```
 
 An MMCM would be required for an arbitrary frequency; 50 MHz is 100 divided by an integer,
-so it isn't. The cost of the fabric divider is hold margin — the clock now passes through
+so it isn't. The cost of the fabric divider is hold margin, because the clock now passes through
 two cascaded BUFGs, roughly doubling insertion delay to 2.4–3.3 ns, which widens the
 launch/capture divergence hold analysis sees. WHS +0.029 ns is met but thin, on a
 zero-logic-level path (`ex_mem_q[temp_WBval]` → `mem_wb_q[temp_WBval]`) where there is no
@@ -212,10 +249,25 @@ data_cache BRAM output → stage_wb (variable shift by lane, sign-extend)
   → WBval → reg_file write-first bypass → id_ex_q.S1val
 ```
 
-That is the writeback-to-decode bypass — structurally the longest path in a 5-stage machine
-and the one that sets the clock in the textbook treatment. It is where it is supposed to be.
+That is the writeback-to-decode bypass, and I want to state the result narrowly, because the
+first version of this section did not. On `xc7s15ftgb196-1` at a 20 ns constraint, in this
+build, the longest path is the load return: sixteen levels, 15.991 ns, roughly 70% route. That
+is an unsurprising place for it to land, and unsurprising is as far as the measurement goes.
 
-**50 MHz is a constraint met, not an Fmax measured.** The path measures 15.991 ns; against a
+I had written that it is the path a textbook points at, which is backwards. The classic
+five-stage critical path is the memory access itself, and it is the memory access because
+textbook memory is asynchronous and the read happens combinationally inside one stage. Mine is
+synchronous block RAM. The access moved into a stage boundary and its clock-to-out became a
+fixed cost at the head of a different path instead. The logic share of the path shifted from
+16% to 30% across that migration, which says the same thing from the other direction, since a
+RAMB's clock-to-out is a large fixed cost a LUT-based read never pays.
+
+So this path is critical because of a decision I made about memory, which is close to the
+opposite of inevitable. Citing a textbook made a design-specific outcome sound like a law, and
+it also closed the investigation early: two pieces of that path, the lane mux and the register
+file bypass, are still unmeasured. Both are written up under §4.4 of the project page.
+
+**Meeting 50 MHz is not the same as measuring Fmax.** The path measures 15.991 ns; against a
 20 ns budget that should leave 4 ns of slack rather than 0.2. It doesn't, because the placer
 and router optimize toward the constraint and stop. Achievable frequency under a tight
 constraint is closer to 62 MHz. Measuring that properly means bypassing the divide-by-2 in
@@ -260,7 +312,7 @@ All three trap in real RV32I and are deferred to L5:
 | **L1** — single-cycle RV32I vs Spike | ✅ `l1-complete` |
 | **L3a** — pipeline, hazards deferred by padding | ✅ `l3a-complete` |
 | **L3b** — forwarding + load-use interlock | ✅ `l3-complete` |
-| **L2** — synthesis and timing closure | 🟡 timing met at 50 MHz in sim; hardware pending |
+| **L2** — synthesis, timing closure, hardware bring-up | ✅ `l2-complete` — 50 MHz, runs on the board |
 | **M** — multiply/divide (multi-cycle EX) | ← after L2 |
 | **L4** — caches | |
 | **L5** — CSRs, traps, privileged modes | |
@@ -270,3 +322,53 @@ single-cycle core has nowhere to put that cycle of latency. A 5-stage pipeline a
 a stage boundary in exactly that place — **the BRAM's own output register is the pipeline
 register.** Doing synthesis first would have meant building a multicycle FSM purely to
 absorb latency, then deleting it.
+
+---
+
+## Credits
+
+All work on this project is my own except where listed here.
+
+### AI assistance
+
+**The regression harness, `scripts/run_tests.sh`, was written by Claude** (Anthropic). I had hit
+a problem where my Makefile updated Spike's `commit.log` but not the copy Vivado's project was
+reading, so the simulation kept scoring against a stale log. I wanted the whole flow out of the
+Vivado GUI and into WSL, and I specified a script that would drive `xvlog`, `xelab` and `xsim`
+directly. The failure modes it guards against are mine, in the sense that I hit every one of
+them first: the stale snapshot that reported PASS on code which no longer compiled, the tool
+exit codes that were being discarded, and the verdict rule that requires positive evidence of
+success rather than the absence of the word FAIL. Model version and original prompt not
+recorded.
+
+**Everything in `sw/` except the Makefile's earliest form was written by Claude.** That is all
+eight assembly test programs (`prog.S`, `prog_nop.S`, `coverage.S`, `coverage_nop.S`, `loads.S`,
+`loaduse.S`, `flushshadow.S`, `hwtest.S`), the linker script `link.ld`, and the two Python
+helpers `pad.py` and `bin2hex.py`. Worth being precise about what that does and
+does not cover, because the programs are the thing the harness checks: **the harness is mine and
+the programs it runs were generated.** What each program had to prove was my call every time, and
+in most cases the reason a program exists is a hazard or a corner I had already found in the RTL.
+Model versions and original prompts are not recorded for the earlier ones.
+
+`flushshadow.S` case 7 is the clearest example of the split, and it is worth reading as one.
+Claude wrote it on 2026-09-09 to expose the ungated write-first bypass in `reg_file.sv`. The
+defect is not the model's find. I diagnosed it on 2026-08-19 while working through the flush
+shadow, wrote the fix down as "fold `valid` into `wr_en`", noted that the hole was independently
+reachable and that no test hit it, and then applied the gate to the clocked write and not to the
+bypass. The case failed on its first run at retirement 35, reading `0x66` where `0xAA` was
+architecturally correct, which is the value and the retirement the analysis predicted.
+
+**Written by me:** the RTL in `rtl/`, the lockstep testbench in `tb/top_lvl_tb.sv` including
+the `$sscanf` parsing of Spike's commit log and the retirement comparison, `constraints.xdc`, the
+level scheme, and the debugging in every session log.
+
+### Tools and references
+
+| | |
+|---|---|
+| Golden reference | [Spike](https://github.com/riscv-software-src/riscv-isa-sim), the RISC-V ISA simulator. Expected values come from software other people wrote from the specification, which is the entire reason it is worth running. |
+| Toolchain | [xPack `riscv-none-elf-gcc`](https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack), prebuilt. |
+| ISA | The RISC-V Instruction Set Manual, Volume I: Unprivileged Architecture. The decoder, the immediate formats and the branch conditions were written against it rather than against a diagram. |
+| Board | [Seeed Spartan Edge Accelerator Board](https://github.com/SeeedDocument/Spartan-Edge-Accelerator-Board/tree/master) documentation, for the pin assignments and the ESP32 SPI programming flow. Pins were taken from their XDC rather than derived from the schematic. |
+| Datapath overview | The Down To The Wire pipelining video, which is where I started. The control unit, the ALU control unit and the branch unit are mine; in the video the branch decision is an arrow labelled `br?` coming out of the ALU, and turning that into a module was the first real design decision I made. |
+| Tools | Vivado 2025.2, WSL2. |

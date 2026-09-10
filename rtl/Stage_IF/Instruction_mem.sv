@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 import riscv_pkg::*;
-module instruction_cache(
+module instruction_mem(
     input logic clk,
     input logic stall,
     input logic [31:0] pc,

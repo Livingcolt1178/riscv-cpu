@@ -62,7 +62,7 @@ module top_lvl_tb;
     //spike absorption
     initial begin
         //opens the complex file from spike
-        dirty_file = $fopen("C:/Users/nrbra/Projects/RISC-V/riscv-cpu/build/commit.log","r");
+        dirty_file = $fopen("commit.log","r");
         if(dirty_file == 0) begin
             $error("Error: Could not open commit.log");
             $finish;

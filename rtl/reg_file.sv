@@ -19,7 +19,7 @@ module reg_file(
     logic [31:0] regs [31:0];
     logic wr_en;
 
-    assign wr_en = (we && WBreg != 0);
+    assign wr_en = (we && WBreg != 0 && valid);
     
     always_comb begin
         if((wr_en) && WBreg == S1reg) begin         //can be read as if a write is happening at the same place as read
@@ -37,7 +37,7 @@ module reg_file(
 
 
     always_ff @(posedge clk) begin
-        if(wr_en && valid) begin
+        if(wr_en) begin
             regs[WBreg] <= WBval;
         end 
     end

@@ -165,7 +165,7 @@ MMIO_unit MMIO_unit(
     .we_periph(mem_we_periph)
 );
 
-data_cache data_cache(
+data_mem data_mem(
     .clk(clk),
 
     .valid(ex_mem_q.valid),

@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 package riscv_pkg;
 
-    parameter string INIT_FILE = "C:/Users/nrbra/Projects/RISC-V/riscv-cpu/build/program.hex";
+    parameter string INIT_FILE = "program.hex";
     parameter int TOHOST = 32'h8000_13F0;       //do not forget to compare against link.ld
 
     typedef enum logic [2:0] {

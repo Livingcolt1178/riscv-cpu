@@ -1,6 +1,7 @@
 
 #vivado project files
 vivado/
+risc-v/
 
 #generated spike files
 sw/*.o

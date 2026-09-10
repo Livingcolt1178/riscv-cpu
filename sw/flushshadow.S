@@ -1,4 +1,27 @@
 # ============================================================================
+# AUTHORSHIP
+#   Case 7 and its banner were written by Claude (claude-opus-5) on 2026-09-09,
+#   to a task Nicholas set: add a case to this file that exposes the ungated
+#   write-first bypass in reg_file.sv. The defect itself is not the model's
+#   find. Nicholas diagnosed it and wrote the fix down in his own measurement
+#   notes on 2026-08-19, in the table under "the rule is 'gate the claim,' not
+#   'gate the effect'", where the row for the register-file write-first bypass
+#   reads "fold valid into wr_en" and the line under it records that the hole is
+#   independently reachable and that no test hits it. This case is that test.
+#
+#   RUN 2026-09-10. It failed on its first run at retirement 35, reading 0x66
+#   where 0xAA was architecturally correct, and passes now that valid is folded
+#   into wr_en in reg_file.sv. The expected values below were derived from
+#   reading the RTL before the run and matched what the run produced. The point of
+#   the case is to fail on the current tree; if it passes on first run, the
+#   cycle accounting in its banner is wrong and should be re-derived before
+#   anything is concluded about reg_file.sv.
+#
+#   Cases 1 through 6 were also written by Claude, in earlier sessions. Model
+#   versions and original prompts are not recorded for those.
+# ============================================================================
+
+# ============================================================================
 # flushshadow.S — a taken redirect must not let its shadow commit
 #
 # Regression test for the bug found 2026-08-19. A jump resolved in EX has two
@@ -27,6 +50,11 @@
 #
 # All three redirect sources are covered (JAL, taken branch, JALR) and all three
 # commit points (register write, memory write, PC redirect).
+#
+# Case 7 is a different shape and reads the state back three instructions past
+# the target rather than at it. A leaked instruction can corrupt a later
+# instruction's operand without committing anything of its own, so blocking the
+# commit points is not on its own enough. See the banner on that case.
 #
 # Same constraints as coverage.S / loads.S:
 #   1. No initialised data — every load is preceded by a store to the address.
@@ -158,6 +186,61 @@ c6_entry:
     addi  x18, x0, 0xCC           # shadow slot 2 — must not commit
 c6_done:
     addi  x20, x18, 0             # observable: x20 must be 0xAA
+
+# ---------------------------------------------------------------------------
+# case 7 — the leaked shadow must not reach the register file's read ports
+#
+# Cases 1 through 6 check that a shadow instruction never *commits*: no register
+# write, no memory write, no redirect. This case checks something else. A leaked
+# instruction can hand a wrong value to a later instruction without committing
+# anything itself, because `reg_file`'s write-first bypass is driven by `wr_en`
+# and `wr_en` does not include `valid`:
+#
+#     reg_file.sv:22   assign wr_en = (we && WBreg != 0);        <- no valid
+#     reg_file.sv:25   if (wr_en && WBreg == S1reg) S1val = WBval;
+#     reg_file.sv:40   if (wr_en && valid) regs[WBreg] <= WBval;  <- valid here
+#
+# One control signal, two consumers, only one of them gated. The clocked write
+# is safe. The combinational read port is not.
+#
+# Why cases 1-6 cannot see it. They all read the victim at their own `cN_done`
+# label, which is target+0. The leak is only visible three instructions later.
+# Counting from the cycle the jump resolves in EX as T:
+#
+#   T     ex_redirect fires. flush_id forces id_inst to 0, killing shadow 1.
+#   T+1   flush_ex has cleared id_ex_q.valid, so ex_redirect is already low.
+#         id_inst is now shadow 2, decoded normally, and if_id_q.valid is 0.
+#   T+2   shadow 2 is in EX with valid=0 and its payload intact. Target+0 is
+#         in ID.
+#   T+3   shadow 2 is in MEM. Target+1 is in ID.
+#   T+4   shadow 2 is in mem_wb_q: valid=0, wb.we_reg=1, wb.rd=x21. Target+2
+#         is in ID, and its register read goes through the bypass.
+#
+# So the consumer has to sit at target+2. `forwarding_unit` is correctly gated
+# on mem_wb_q.valid and stands aside, which is what leaves the bypass to answer.
+#
+# The jump is `jal x0` on purpose. With a nonzero rd the flush also parks a
+# stale copy of the jump itself in id_ex_q for one cycle, which reaches mem_wb_q
+# at T+3 and would poison target+1 as well. That copy carries the jump's own
+# correct pc+4, so it is harmless, but it would blur which slot this case is
+# actually testing. Writing rd=x0 makes wr_en 0 for it and leaves one window.
+#
+# The mechanism does not depend on the redirect source. Shadow 2 leaks out of
+# the fetch shadow, not out of the branch unit, so a taken branch and a JALR
+# behave identically here and are already covered for commit in cases 4 and 5.
+#
+# Registers: x21 is the victim and the shadow's rd. x22 and x23 are spacers and
+# do nothing except occupy target+0 and target+1. x24 is the observable.
+# ---------------------------------------------------------------------------
+    addi  x21, x0, 0xAA           # victim, known good
+    jal   x0, c7_done             # taken, skips the next two
+    addi  x21, x0, 0x55           # shadow slot 1 — killed in ID by id_inst
+    addi  x21, x0, 0x66           # shadow slot 2 — leaks, valid=0, rd=x21
+c7_done:
+    addi  x22, x0, 0x01           # target+0 — spacer
+    addi  x23, x0, 0x02           # target+1 — spacer
+    addi  x24, x21, 0             # target+2 — observable: x24 must be 0xAA
+                                  # with the bypass ungated it reads 0x66
 
 # ---------------------------------------------------------------------------
 # exit
