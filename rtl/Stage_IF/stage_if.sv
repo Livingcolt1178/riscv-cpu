@@ -1,36 +1,36 @@
 `timescale 1ns/1ps
+module stage_if
 import riscv_pkg::*;
-module stage_if (
-input logic clk,
-input logic rst_n,
+(
+input logic clk_i,
+input logic rst_ni,
 
-input logic stall,
-input logic ex_redirect,
-input logic [31:0] ex_redirect_pc,
+input logic stall_i,
+input logic ex_redirect_i,
+input logic [31:0] ex_redirect_pc_i,
 
-output if_id_t if_id_d,
-output logic [31:0] if_inst
+output if_id_t if_id_o,
+output logic [31:0] if_inst_o
 );
 
-    assign if_id_d.valid  = 1'b1;
+assign if_id_o.valid  = 1'b1;
 
-pc pc (
-    .clk(clk),
-    .rst_n(rst_n),
+pc u_pc (
+    .clk_i(clk_i),
+    .rst_ni(rst_ni),
 
-    .stall(stall),
-    .ex_redirect(ex_redirect),
-    .ex_redirect_pc(ex_redirect_pc),
+    .stall_i(stall_i),
+    .ex_redirect_i(ex_redirect_i),
+    .ex_redirect_pc_i(ex_redirect_pc_i),
 
-    .pc_out(if_id_d.pc)
+    .pc_o(if_id_o.pc)
 );
 
-instruction_mem instruction_mem(
-    .clk(clk),
-    .stall(stall),
-    .pc(if_id_d.pc),
+instruction_mem u_instruction_mem(
+    .clk_i(clk_i),
+    .stall_i(stall_i),
+    .pc_i(if_id_o.pc),
 
-    .inst(if_inst)
+    .inst_o(if_inst_o)
 );
-
 endmodule

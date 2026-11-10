@@ -1,11 +1,11 @@
 `timescale 1ns/1ps
-`default_nettype none //prevents me from forgetting to declare a wire
+module top_lvl
 import riscv_pkg::*;
-module top_lvl(
-    input wire clk,
-    input wire rst_n_in,
+(
+    input logic clk_i,
+    input logic rst_ni,
 
-    output logic led_green
+    output logic led_green_o
 );
 
 if_id_t if_id_d;
@@ -33,8 +33,8 @@ logic flush_wb;
 
 logic ex_redirect;
 logic [31:0] ex_redirect_pc;
-logic [31:0] id_S1val;
-logic [31:0] id_S2val;
+logic [31:0] id_rs1_data;
+logic [31:0] id_rs2_data;
 
 fwd_sel_t fwd_a;
 fwd_sel_t fwd_b;
@@ -46,38 +46,42 @@ logic mem_we_periph;
 
 logic [31:0] if_inst;
 logic [31:0] id_inst;
-logic [31:0] WBval;
-(* ASYNC_REG = "TRUE" *) logic rst_n_1, rst_n;
+logic [31:0] wb_data;
 
-always_ff @(posedge clk or negedge rst_n_in) begin
-    if(!rst_n_in) begin
-        rst_n_1 <= 1'b0;
-        rst_n <= 1'b0;
+(* ASYNC_REG = "TRUE" *) logic rst_q, rst_q2;
+logic rst_n;
+
+always_ff @(posedge clk_i or negedge rst_ni) begin
+    if(!rst_ni) begin
+        rst_q <= 1'b0;
+        rst_q2 <= 1'b0;
     end else begin
-        rst_n_1 <= rst_n_in;
-        rst_n <= rst_n_1;
+        rst_q <= rst_ni;
+        rst_q2 <= rst_q;
     end
 end
+assign rst_n = rst_q2;
 
-assign load_use_hazard = id_ex_q.valid && (id_ex_q.op_class == LOAD && id_ex_q.wb.rd != 0 && ((id_ex_q.wb.rd == id_inst[19:15]) || (id_ex_q.wb.rd == id_inst[24:20])));
+assign load_use_hazard = id_ex_q.valid && (id_ex_q.op_class == Load && id_ex_q.wb.rd != 0 &&
+                         ((id_ex_q.wb.rd == id_inst[19:15]) || (id_ex_q.wb.rd == id_inst[24:20])));
 assign stall_if = load_use_hazard;
 
-stage_if stage_if(
-    .clk(clk),
-    .rst_n(rst_n),
+stage_if u_stage_if(
+    .clk_i(clk_i),
+    .rst_ni(rst_n),
 
-    .stall(stall_if),
-    .ex_redirect(ex_redirect),
-    .ex_redirect_pc(ex_redirect_pc),
+    .stall_i(stall_if),
+    .ex_redirect_i(ex_redirect),
+    .ex_redirect_pc_i(ex_redirect_pc),
 
-    .if_id_d(if_id_d),
-    .if_inst(if_inst)
+    .if_id_o(if_id_d),
+    .if_inst_o(if_inst)
 );
 
-assign flush_id = ex_redirect; 
+assign flush_id = ex_redirect;
 assign stall_id = load_use_hazard;
 
-always_ff @(posedge clk) begin
+always_ff @(posedge clk_i) begin
     if (!rst_n)          if_id_q.valid <= 0;
     else if (flush_id)   if_id_q.valid <= 0;
     else if (!stall_id)  if_id_q <= if_id_d;
@@ -86,126 +90,126 @@ end
 assign id_inst = flush_id ? '0 : if_inst;
 
 
-reg_file reg_file(
-    .clk(clk),
-    
-    .valid(mem_wb_q.valid),
-    .we(mem_wb_q.wb.we_reg),            //comes back in from wb stage
-    .S2reg(id_inst[24:20]),
-    .S1reg(id_inst[19:15]),
-    .WBval(WBval),                      //comes back in from wb stage
-    .WBreg(mem_wb_q.wb.rd),             //comes back in from wb stage
+reg_file u_reg_file(
+    .clk_i(clk_i),
 
-    .S1val(id_S1val),   //fed back into stage_id so that the total output comes from stage_id
-    .S2val(id_S2val)  //fed back into stage_id so that the total output comes from stage_id
+    .valid_i(mem_wb_q.valid),
+    .we_i(mem_wb_q.wb.we_reg),    //comes back in from wb stage
+    .rs1_addr_i(id_inst[19:15]),
+    .rs2_addr_i(id_inst[24:20]),
+    .wb_data_i(wb_data),          //comes back in from wb stage
+    .wb_addr_i(mem_wb_q.wb.rd),    //comes back in from wb stage
+
+    .rs1_data_o(id_rs1_data), //fed back into stage_id so that the total output comes from stage_id
+    .rs2_data_o(id_rs2_data)  //fed back into stage_id so that the total output comes from stage_id
 );
 
-stage_id stage_id(
-    .if_id_q(if_id_q),
-    .id_inst(id_inst),
-    .S1val(id_S1val),
-    .S2val(id_S2val),
-    
-    .id_ex_d(id_ex_d)
+stage_id u_stage_id(
+    .if_id_i(if_id_q),
+    .id_inst_i(id_inst),
+    .rs1_data_i(id_rs1_data),
+    .rs2_data_i(id_rs2_data),
+
+    .id_ex_o(id_ex_d)
 );
 
 assign flush_ex = ex_redirect || load_use_hazard;
 assign stall_ex = 1'b0; //waiting on M extenstion
 
 
-always_ff @(posedge clk) begin
+always_ff @(posedge clk_i) begin
     if (!rst_n)          id_ex_q.valid <= 0;
     else if (flush_ex)   id_ex_q.valid <= 0;
     else if (!stall_ex)  id_ex_q <= id_ex_d;
 end
 
-forwarding_unit forwarding_unit(
-    .id_S1reg(id_ex_q.rs1),
-    .id_S2reg(id_ex_q.rs2),
+forwarding_unit u_forwarding_unit(
+    .id_rs1_addr_i(id_ex_q.rs1_addr),
+    .id_rs2_addr_i(id_ex_q.rs2_addr),
 
-    .ex_valid(ex_mem_q.valid),
-    .ex_WBreg(ex_mem_q.wb.rd),
-    .ex_we(ex_mem_q.wb.we_reg),
+    .ex_valid_i(ex_mem_q.valid),
+    .ex_wb_addr_i(ex_mem_q.wb.rd),
+    .ex_we_i(ex_mem_q.wb.we_reg),
 
-    .mem_valid(mem_wb_q.valid),
-    .mem_WBreg(mem_wb_q.wb.rd),
-    .mem_we(mem_wb_q.wb.we_reg),
+    .mem_valid_i(mem_wb_q.valid),
+    .mem_wb_addr_i(mem_wb_q.wb.rd),
+    .mem_we_i(mem_wb_q.wb.we_reg),
 
-    .fwd_a(fwd_a),
-    .fwd_b(fwd_b)
+    .fwd_a_o(fwd_a),
+    .fwd_b_o(fwd_b)
 );
 
-stage_ex stage_ex(
-    .id_ex_q(id_ex_q),
-    .fwd_ex_val(ex_mem_q.temp_WBval),
-    .fwd_mem_val(WBval),
-    .fwd_a(fwd_a), 
-    .fwd_b(fwd_b),
+stage_ex u_stage_ex(
+    .id_ex_i(id_ex_q),
+    .fwd_ex_val_i(ex_mem_q.temp_wb_data),
+    .fwd_mem_val_i(wb_data),
+    .fwd_a_i(fwd_a),
+    .fwd_b_i(fwd_b),
 
-    .ex_mem_d(ex_mem_d),
-    .ex_redirect(ex_redirect),//not pipelined
-    .ex_redirect_pc(ex_redirect_pc) //not pipelined
+    .ex_mem_o(ex_mem_d),
+    .ex_redirect_o(ex_redirect),//not pipelined
+    .ex_redirect_pc_o(ex_redirect_pc) //not pipelined
 );
 
 assign flush_mem = 1'b0; //implemented at L5
 assign stall_mem = 1'b0; //implemented at L4
 
-always_ff @(posedge clk) begin
+always_ff @(posedge clk_i) begin
     if (!rst_n)           ex_mem_q.valid <= 0;
     else if (flush_mem)   ex_mem_q.valid <= 0;
     else if (!stall_mem)  ex_mem_q <= ex_mem_d;
 end
 
-MMIO_unit MMIO_unit(
-    .valid(ex_mem_q.valid),
-    .mem_addr(ex_mem_q.alu_out),    //this is the memory address, if its in a certain area its directed to a mmio
-    .we(ex_mem_q.mem.we_mem),       //this tells us if the action involves writing, if it doesn't this does nothing
+mmio_unit u_mmio_unit(
+    .valid_i(ex_mem_q.valid),
+    .mem_addr_i(ex_mem_q.alu_result),
+    .we_i(ex_mem_q.mem.we_mem),
 
-    .we_dmem(mem_we_dmem),
-    .we_periph(mem_we_periph)
+    .we_dmem_o(mem_we_dmem),
+    .we_periph_o(mem_we_periph)
 );
 
-data_mem data_mem(
-    .clk(clk),
+data_mem u_data_mem(
+    .clk_i(clk_i),
 
-    .valid(ex_mem_q.valid),
-    .addr(ex_mem_q.alu_out),
-    .mem_in(ex_mem_q.S2val),
-    .fct3(ex_mem_q.mem.fct3),
-    .we(mem_we_dmem),
+    .valid_i(ex_mem_q.valid),
+    .addr_i(ex_mem_q.alu_result),
+    .mem_i(ex_mem_q.rs2_data),
+    .fct3_i(ex_mem_q.mem.fct3),
+    .we_i(mem_we_dmem),
 
-    .dmem_out(wb_dmem_out)//this is a register output, at the same time as mem_wb_q, currently its being passed as a full 32 bit word from the address regardless, 
+    .dmem_o(wb_dmem_out)
 );
 
-stage_mem stage_mem(
-    .ex_mem_q(ex_mem_q),
+stage_mem u_stage_mem(
+    .ex_mem_i(ex_mem_q),
 
-    .mem_wb_d(mem_wb_d)
+    .mem_wb_o(mem_wb_d)
 );
 
 assign flush_wb = 1'b0; //implemented at L4
 assign stall_wb = 1'b0; // WB never stalls: nothing downstream can block it
 
-always_ff @(posedge clk) begin
+always_ff @(posedge clk_i) begin
     if (!rst_n)          mem_wb_q.valid <= 0;
     else if (flush_wb)   mem_wb_q.valid <= 0;
     else if (!stall_wb)  mem_wb_q <= mem_wb_d;
 end
 
-stage_wb stage_wb(
-    .mem_wb_q(mem_wb_q),
-    .dmem_in(wb_dmem_out),
+stage_wb u_stage_wb(
+    .mem_wb_i(mem_wb_q),
+    .dmem_i(wb_dmem_out),
 
-    .WBval(WBval)
+    .wb_data_o(wb_data)
 );
 
 //IO's
-LED_IO LED_IO(
-    .clk(clk),
-    .rst_n(rst_n),
-    .we_periph(mem_we_periph),
-    .mem_in(ex_mem_q.S2val),
+led_io u_led_io(
+    .clk_i(clk_i),
+    .rst_ni(rst_n),
+    .we_periph_i(mem_we_periph),
+    .mem_i(ex_mem_q.rs2_data),
 
-    .led_green(led_green)
+    .led_green_o(led_green_o)
 );
 endmodule

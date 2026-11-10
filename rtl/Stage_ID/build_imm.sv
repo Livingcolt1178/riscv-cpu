@@ -1,21 +1,21 @@
 `timescale 1ns/1ps
+module build_imm
 import riscv_pkg::*;
-module build_imm (
-    input logic [31:0] inst,
-    input format_t format,
+(
+    input logic [31:0] inst_i,
+    input format_t format_i,
 
-    output logic [31:0] imm
+    output logic [31:0] imm_o
 );
 
 always_comb begin
-    case(format)
-        I: imm = {{20{inst[31]}}, inst[31:20]};
-        S: imm = {{20{inst[31]}}, inst[31:25], inst[11:7]};
-        B: imm = {{20{inst[31]}}, inst[7], inst[30:25], inst[11:8], 1'b0};
-        U: imm = {inst[31:12], {12'b0}};
-        J: imm = {{12{inst[31]}},inst[19:12],inst[20], inst[30:21],1'b0};
-        default: imm = 32'b0;
+    unique case(format_i)
+        I: imm_o = {{20{inst_i[31]}}, inst_i[31:20]};
+        S: imm_o = {{20{inst_i[31]}}, inst_i[31:25], inst_i[11:7]};
+        B: imm_o = {{20{inst_i[31]}}, inst_i[7], inst_i[30:25], inst_i[11:8], 1'b0};
+        U: imm_o = {inst_i[31:12], {12'b0}};
+        J: imm_o = {{12{inst_i[31]}},inst_i[19:12],inst_i[20], inst_i[30:21],1'b0};
+        default: imm_o = 32'b0;
     endcase
 end
-
 endmodule
