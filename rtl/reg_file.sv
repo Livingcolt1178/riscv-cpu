@@ -1,45 +1,44 @@
 `timescale 1ns/1ps
 module reg_file(
-    input logic clk,
-    
-    input logic valid,
-    input logic we,
-    input logic [4:0] S2reg,
-    input logic [4:0] S1reg,
-    input logic [31:0] WBval,
-    input logic [4:0] WBreg,
+    input logic clk_i,
 
-    output logic [31:0] S1val,
-    output logic [31:0] S2val
+    input logic valid_i,
+    input logic we_i,
+    input logic [4:0] rs1_addr_i,
+    input logic [4:0] rs2_addr_i,
+    input logic [31:0] wb_data_i,
+    input logic [4:0] wb_addr_i,
 
+    output logic [31:0] rs1_data_o,
+    output logic [31:0] rs2_data_o
 );
 
 //important note, because we are now dealing with mulitple cycles, if we are reading from the same register we are writing to, because writing is register clked and reding is combination, it would be reading an old value. thus we need to implement write first bypass, which eseintally connects the write to the read port combinationally if rd and write reg are to same so as to not read a stale value.
 
-    logic [31:0] regs [31:0];
+    logic [31:0] regs[32];
     logic wr_en;
 
-    assign wr_en = (we && WBreg != 0 && valid);
-    
+    assign wr_en = (we_i && wb_addr_i != 0 && valid_i);
+
     always_comb begin
-        if((wr_en) && WBreg == S1reg) begin         //can be read as if a write is happening at the same place as read
-            S1val = WBval;
+        //can be read as if a write is happening at the same place as read
+        if((wr_en) && wb_addr_i == rs1_addr_i) begin
+            rs1_data_o = wb_data_i;
         end else begin
-            S1val = (S1reg == 0) ? 0 : regs[S1reg];
+            rs1_data_o =  (rs1_addr_i == 0) ? 0 : regs[rs1_addr_i];
         end
-        
-        if((wr_en) && WBreg == S2reg) begin
-            S2val = WBval;
+
+        if((wr_en) && wb_addr_i == rs2_addr_i) begin
+            rs2_data_o = wb_data_i;
         end else begin
-            S2val = (S2reg == 0) ? 0 : regs[S2reg];
+            rs2_data_o = (rs2_addr_i == 0) ? 0 : regs[rs2_addr_i];
         end
     end
 
 
-    always_ff @(posedge clk) begin
+    always_ff @(posedge clk_i) begin
         if(wr_en) begin
-            regs[WBreg] <= WBval;
-        end 
+            regs[wb_addr_i] <= wb_data_i;
+        end
     end
-
 endmodule

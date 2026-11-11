@@ -1,30 +1,32 @@
 `timescale 1ns/1ps
+module alu
 import riscv_pkg::*;
-module alu( 
-    input logic [31:0] val1,
-    input logic [31:0] val2,
-    input alu_fct3_t alu_fct3,
+(
+    input logic [31:0] val1_i,
+    input logic [31:0] val2_i,
+    input alu_fct3_t alu_fct3_i,
 
-    output logic [31:0] alu_out
+    output logic [31:0] alu_result_o
 );
     logic [4:0] shamt;
-    assign shamt = val2 [4:0]; // decided to use shamt because I believe that is convention
+    assign shamt = val2_i [4:0];
 
     // Function of ALU
     always_comb begin
-        case(alu_fct3)
-            ALU_ADD     : alu_out = val1 + val2;
-            ALU_SUB     : alu_out = val1 - val2;
-            ALU_SLL     : alu_out = val1 << shamt;
-            ALU_SLT     : alu_out = ($signed(val1) < $signed(val2)) ? 32'd1 : 32'd0; //this checks iif val1 is less than val 2 if true it sets output to 1.
-            ALU_SLTU    : alu_out = (val1 < val2) ? 32'd1 : 32'd0; 
-            ALU_XOR     : alu_out = val1 ^ val2;
-            ALU_SRL     : alu_out = val1 >> shamt;
-            ALU_SRA     : alu_out = $signed(val1) >>> shamt; //this preserves the sign, logical merely fills it with zeros.
-            ALU_OR      : alu_out = val1 | val2;
-            ALU_AND     : alu_out = val1 & val2;           
-            
-            default: alu_out = '0;
+        unique case(alu_fct3_i)
+            AluAdd     : alu_result_o = val1_i + val2_i;
+            AluSub     : alu_result_o = val1_i - val2_i;
+            AluSll     : alu_result_o = val1_i << shamt;
+            //this checks iif val1 is less than val 2 if true it sets output to 1.
+            AluSlt     : alu_result_o = ($signed(val1_i) < $signed(val2_i)) ? 32'd1 : 32'd0;
+            AluSltu    : alu_result_o = (val1_i < val2_i) ? 32'd1 : 32'd0;
+            AluXor     : alu_result_o = val1_i ^ val2_i;
+            AluSrl     : alu_result_o = val1_i >> shamt;
+            //this preserves the sign, logical merely fills it with zeros.
+            AluSra     : alu_result_o = $signed(val1_i) >>> shamt;
+            AluOr      : alu_result_o = val1_i | val2_i;
+            AluAnd     : alu_result_o = val1_i & val2_i;
+            default: alu_result_o = '0;
         endcase
     end
 endmodule

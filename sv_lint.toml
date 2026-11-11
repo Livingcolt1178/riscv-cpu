@@ -1,0 +1,22 @@
+# sv-lint config for this repo (lowRISC style). Drafted with Claude (claude-opus-5-5), 2026-11-10,
+# during the lowRISC style pass; reset_style and begin_end_scope are Nicholas's decisions.
+
+[rules]
+reset_style = "sync_low"
+begin_end_scope = "branch"
+
+[[waive]]
+rule = "reset-style"
+file = "rtl/top_lvl.sv"
+match = "asynchronous reset `rst_ni`"
+reason = "reset synchronizer: async assert, sync release"
+
+[[waive]]
+rule = "logic-for-synthesis"
+file = "tb/*"
+reason = "testbench: 2-state types are fine in DV code"
+
+[[waive]]
+rule = "unique-case"
+file = "tb/*"
+reason = "testbench: decode for printing, not hardware"

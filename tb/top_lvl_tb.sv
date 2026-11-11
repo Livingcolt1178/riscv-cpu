@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
-import riscv_pkg::*;
 module top_lvl_tb;
+import riscv_pkg::*;
 
     // Clock and reset signals
     logic clk;
@@ -9,7 +9,7 @@ module top_lvl_tb;
     int dirty_file, i, j;
     int core_id, step_num;
     logic [31:0] pc, hex_instr, rd, rd_data, mem_addr, mem_data;
-    
+
     real cpi;
 
     typedef struct {
@@ -17,19 +17,18 @@ module top_lvl_tb;
         logic [31:0] pc, hex_instr, rd, rd_data, mem_addr, mem_data;
     } test_struct_t;
 
-
-    test_struct_t spike_struct [0:4999];
-    test_struct_t rtl_struct [0:4999];
     localparam int MAX_CYCLES = 5000;
+    test_struct_t spike_struct [MAX_CYCLES];
+    test_struct_t rtl_struct [MAX_CYCLES];
     logic [$clog2(MAX_CYCLES)-1 : 0 ] clk_count;
     logic led_green;
 
     // Instantiate the DUT (Device Under Test)
     top_lvl dut (
-        .clk(clk),
-        .rst_n_in(rst_n),
+        .clk_i(clk),
+        .rst_ni(rst_n),
 
-        .led_green(led_green)
+        .led_green_o(led_green)
     );
 
     // Clock generation
@@ -50,12 +49,13 @@ module top_lvl_tb;
         $fatal(1, "FAIL: Pass Max Cycles");
     end
 
-    task check(input string test_name, input logic [31:0] expected, input logic [31:0] got, input int cycle);
+    task automatic check(input string test_name, input logic [31:0] expected,
+               input logic [31:0] got, input int cycle);
         if (got !== expected) begin
             $fatal(1, "[%d] FAIL %s: Expected 0x%h, Got 0x%h",
                    cycle, test_name, expected, got);
         end
-    endtask 
+    endtask
 
 
 
@@ -72,41 +72,50 @@ module top_lvl_tb;
         i = 0;
         while (!$feof(dirty_file)) begin
             if ($fgets(line, dirty_file)) begin
-                if ($sscanf(line,"core %d: %d 0x%x (0x%x)", core_id, step_num, pc, hex_instr) == 4) begin    //looks at the string line from the log, then when finding matching fucntions, it asigns the it to its respective variable
+                // looks at the string line from the log, then when finding matching functions,
+                // assigns each to its respective variable
+                if ($sscanf(line, "core %d: %d 0x%x (0x%x)",
+                     core_id, step_num, pc, hex_instr) == 4) begin
                     if( pc >= 32'h80000000) begin
                         spike_struct[i].core_id = core_id;
                         spike_struct[i].step_num = step_num;
                         spike_struct[i].pc = pc;
                         spike_struct[i].hex_instr = hex_instr;
-                        if($sscanf(line,"core %d: %d 0x%x (0x%x) x%d 0x%x mem 0x%x",        core_id, step_num, pc, hex_instr, rd, rd_data, mem_addr) == 7)begin //load operation
+                        // load operation
+                        if ($sscanf(line, "core %d: %d 0x%x (0x%x) x%d 0x%x mem 0x%x",
+                            core_id, step_num, pc, hex_instr, rd, rd_data, mem_addr) == 7) begin
                             spike_struct[i].rd = rd;
                             spike_struct[i].rd_data = rd_data;
                             spike_struct[i].mem_addr = mem_addr;
-                        end else if ($sscanf(line,"core %d: %d 0x%x (0x%x) mem 0x%x 0x%x",  core_id, step_num, pc, hex_instr, mem_addr, mem_data) == 6) begin   //store operation
+                        //store operation
+                        end else if ($sscanf(line,"core %d: %d 0x%x (0x%x) mem 0x%x 0x%x",
+                                core_id, step_num, pc, hex_instr, mem_addr, mem_data) == 6) begin
                             spike_struct[i].mem_addr = mem_addr;
                             spike_struct[i].mem_data = mem_data;
                             if(spike_struct[i].mem_addr == TOHOST) begin
                                 i++;
                                 break;
                             end
-                        end else if ($sscanf(line, "core %d: %d 0x%x (0x%x) mem 0x%x", core_id, step_num, pc, hex_instr, mem_addr) == 5) begin
+                        end else if ($sscanf(line, "core %d: %d 0x%x (0x%x) mem 0x%x",
+                                    core_id, step_num, pc, hex_instr, mem_addr) == 5) begin
                             spike_struct[i].mem_addr = mem_addr;
-                        end else if ($sscanf(line,"core %d: %d 0x%x (0x%x) x%d 0x%x",       core_id, step_num, pc, hex_instr, rd, rd_data) == 6) begin          //any reg operation
+                        //any reg operation
+                        end else if ($sscanf(line,"core %d: %d 0x%x (0x%x) x%d 0x%x",
+                                    core_id, step_num, pc, hex_instr, rd, rd_data) == 6) begin
                             spike_struct[i].rd = rd;
                             spike_struct[i].rd_data = rd_data;
-                        end                       
+                        end
                         i++;
-                        
                     end
                 end else begin
-                    $fatal(1, "[line: %d] unparseable line: %s ", i, line);     //nothing not matching these formats should pass
+                    //nothing not matching these formats should pass
+                    $fatal(1, "[line: %d] unparseable line: %s ", i, line);
                 end
             end
         end
         if(dirty_file != 0) begin
             $fclose(dirty_file);
         end
-        
         $display("Parsing complete.");
     end
 
@@ -114,34 +123,38 @@ module top_lvl_tb;
     initial begin
         j = 0;
         clk_count = 0;
-         
         forever begin
             wait(dut.rst_n);
             @(posedge clk);
             clk_count = clk_count + 1;
-            if(dut.mem_wb_q.valid) begin //to allow the pipeline to fill and start retiring before we start the checking
-                if (j > i) $fatal(1, "core still running at cycle %0d; Spike retired only %0d instructions", j, i);
-
+            //to allow the pipeline to fill and start retiring before we start the checking
+            if(dut.mem_wb_q.valid) begin
+                if (j > i) begin
+                    $fatal(1, {"core still running at cycle %0d; ",
+                               "Spike retired only %0d instructions"}, j, i);
+                end
                 rtl_struct[j].pc = dut.mem_wb_q.trace.pc;
                 rtl_struct[j].hex_instr = dut.mem_wb_q.trace.inst;
                 if(dut.mem_wb_q.wb.we_reg != 0 && dut.mem_wb_q.wb.rd != 0) begin
                     rtl_struct[j].rd = dut.mem_wb_q.wb.rd;
-                    rtl_struct[j].rd_data = dut.WBval;
+                    rtl_struct[j].rd_data = dut.wb_data;
                 end
-                if(dut.mem_wb_q.op_class == STORE || dut.mem_wb_q.op_class == LOAD) begin
-                    rtl_struct[j].mem_addr = dut.mem_wb_q.trace.alu_out;
+                if(dut.mem_wb_q.op_class == Store || dut.mem_wb_q.op_class == Load) begin
+                    rtl_struct[j].mem_addr = dut.mem_wb_q.trace.alu_result;
                 end
-                if(dut.mem_wb_q.op_class == STORE) begin
-                    case(dut.mem_wb_q.trace.fct3) //this is due to idealized memory and not having done lane select yet
+                if(dut.mem_wb_q.op_class == Store) begin
+                    //this is due to idealized memory and not having done lane select yet
+                    //TODO: OUTDATED COMMENT, NEED TO REVIST THIS CASE
+                    case(dut.mem_wb_q.trace.fct3)
                         3'b000: rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata[7:0];
                         3'b001: rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata[15:0];
                         3'b010: rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata;
                         default:rtl_struct[j].mem_data = dut.mem_wb_q.trace.mem_wdata;
                     endcase
-                end 
-                
+                end
                 //uncomment if you wish retire by retire comparison
-                //$display("[%0d] retire pc=%h inst=%h", clk_count, dut.mem_wb_q.trace.pc, dut.mem_wb_q.trace.inst);
+                //$display("[%0d] retire pc=%h inst=%h",
+                //          clk_count, dut.mem_wb_q.trace.pc, dut.mem_wb_q.trace.inst);
 
                 check("pc",         spike_struct[j].pc,         rtl_struct[j].pc,       j);
                 check("hex_instr",  spike_struct[j].hex_instr,  rtl_struct[j].hex_instr,j);
@@ -150,16 +163,21 @@ module top_lvl_tb;
                 check("mem_addr",   spike_struct[j].mem_addr,   rtl_struct[j].mem_addr, j);
                 check("mem_data",   spike_struct[j].mem_data,   rtl_struct[j].mem_data, j);
                 j++;
-                if(dut.mem_wb_q.valid && dut.mem_wb_q.op_class == STORE && dut.mem_wb_q.trace.alu_out == TOHOST) begin
-                    if ($test$plusargs("expect_led")) begin
+                if(dut.mem_wb_q.valid && (dut.mem_wb_q.op_class == Store)
+                     && (dut.mem_wb_q.trace.alu_result == TOHOST)) begin
+                    if ($test$plusargs("expect_led")) begin // verilog_lint: waive plusarg-assignment
                         check("led_check", 32'd1, {31'b0, led_green}, j);
                     end
-                    break;          
-                end      
+                    break;
+                end
             end
         end
-        clk_count--; //we subtract one at the end because it will always add a clk count before it detects tohost thus adding a cycle that didn't happen.
-        cpi = real'(clk_count)/real'(j);// right now there is a 1 cycle lag due to interlocking firing when it shouldn't, this can be fixed by setting rs1 and rs2 to x0 on U and J formats as to not cause interlocking when it shouldn't
+        //we subtract one at the end because it will always add a clk count before
+        //it detects tohost thus adding a cycle that didn't happen.
+        clk_count--;
+        //right now there is a 1 cycle lag due to interlocking firing when it shouldn't,
+        //this can be fixed by setting rs1 and rs2 to x0 on U and J formats as to not cause interlocking when it shouldn't
+        cpi = real'(clk_count)/real'(j);
         $display("PASSED ALL TESTS, rtl tests: %d, spike tests: %d, CPI: %f" ,j, i, cpi);
         $finish;
     end

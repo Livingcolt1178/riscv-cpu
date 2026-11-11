@@ -1,31 +1,31 @@
 `timescale 1ns/1ps
+module target_address_constructor
 import riscv_pkg::*;
-module target_address_constructor(
-input logic [31:0] imm,
-input logic [31:0] pc,
-input logic [31:0] S1val, 
-input op_class_t op_class,
+(
+input logic [31:0] imm_i,
+input logic [31:0] pc_i,
+input logic [31:0] rs1_data_i,
+input op_class_t op_class_i,
 
-output logic [31:0] ta
+output logic [31:0] ta_o
 );
 
 logic [31:0] base;
 
 always_comb begin
-    case(op_class) 
-        BRANCH:  base = pc;
-        JUMP:    base = pc;
-        JUMPR:   base = S1val;
-        LUI:     base = 0;
-        AUIPC:   base = pc;
-        default: base = pc;
+    unique case(op_class_i)
+        Branch:  base = pc_i;
+        Jump:    base = pc_i;
+        JumpR:   base = rs1_data_i;
+        Lui:     base = 0;
+        Auipc:   base = pc_i;
+        default: base = pc_i;
     endcase
 
-    if(op_class == JUMPR) begin
-        ta = {(base + imm) & ~32'd1};
+    if(op_class_i == JumpR) begin
+        ta_o = {(base + imm_i) & ~32'd1};
     end else begin
-        ta = base + imm;
+        ta_o = base + imm_i;
     end
-end 
-
+end
 endmodule

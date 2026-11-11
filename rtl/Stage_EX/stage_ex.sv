@@ -1,88 +1,83 @@
 `timescale 1ns/1ps
+module stage_ex
 import riscv_pkg::*;
-module stage_ex (
-    input id_ex_t id_ex_q,
-    input logic [31:0] fwd_ex_val,
-    input logic [31:0] fwd_mem_val,
-    input fwd_sel_t fwd_a, 
-    input fwd_sel_t fwd_b,
+(
+    input id_ex_t id_ex_i,
+    input logic [31:0] fwd_ex_val_i,
+    input logic [31:0] fwd_mem_val_i,
+    input fwd_sel_t fwd_a_i,
+    input fwd_sel_t fwd_b_i,
 
-    output ex_mem_t ex_mem_d,
-    output logic ex_redirect,
-    output logic[31:0] ex_redirect_pc
+    output ex_mem_t ex_mem_o,
+    output logic ex_redirect_o,
+    output logic[31:0] ex_redirect_pc_o
 );
 
 
 logic br;
-logic [31:0] s1_fwd;
-logic [31:0] s2_fwd;
+logic [31:0] rs1_fwd, rs2_fwd;
 logic [31:0] ta;
 
 //driven signals to future stages
-assign ex_mem_d.valid       = id_ex_q.valid;
-assign ex_mem_d.S2val       = s2_fwd;
-assign ex_mem_d.op_class    = id_ex_q.op_class;
-assign ex_mem_d.mem         = id_ex_q.mem;
-assign ex_mem_d.wb          = id_ex_q.wb;
+assign ex_mem_o.valid       = id_ex_i.valid;
+assign ex_mem_o.rs2_data    = rs2_fwd;
+assign ex_mem_o.op_class    = id_ex_i.op_class;
+assign ex_mem_o.mem         = id_ex_i.mem;
+assign ex_mem_o.wb          = id_ex_i.wb;
 
 //trace signals
-assign ex_mem_d.pc          = id_ex_q.pc;
-assign ex_mem_d.inst        = id_ex_q.inst;
+assign ex_mem_o.pc          = id_ex_i.pc;
+assign ex_mem_o.inst        = id_ex_i.inst;
 
-
-assign ex_redirect_pc = ta;
-always_comb begin
-    if(((ex_mem_d.op_class == BRANCH && br == 1) || ex_mem_d.op_class == JUMP || ex_mem_d.op_class == JUMPR) && id_ex_q.valid) begin
-        ex_redirect = 1;
-    end else begin
-        ex_redirect = 0;
-    end
-end
+assign ex_redirect_pc_o = ta;
+assign ex_redirect_o = id_ex_i.valid &&
+                        (((ex_mem_o.op_class == Branch) && br)
+                        || (ex_mem_o.op_class == Jump)
+                        || (ex_mem_o.op_class == JumpR));
 
 always_comb begin
-    case(fwd_a)
-        FWD_EX: s1_fwd = fwd_ex_val;
-        FWD_MEM: s1_fwd = fwd_mem_val;
-        default: s1_fwd = id_ex_q.S1val;  
+    unique case(fwd_a_i)
+        FwdEx: rs1_fwd = fwd_ex_val_i;
+        FwdMem: rs1_fwd = fwd_mem_val_i;
+        default: rs1_fwd = id_ex_i.rs1_data;
     endcase
-    case(fwd_b)
-        FWD_EX: s2_fwd = fwd_ex_val;
-        FWD_MEM: s2_fwd = fwd_mem_val;
-        default: s2_fwd = id_ex_q.S2val;  
+    unique case(fwd_b_i)
+        FwdEx: rs2_fwd = fwd_ex_val_i;
+        FwdMem: rs2_fwd = fwd_mem_val_i;
+        default: rs2_fwd = id_ex_i.rs2_data;
     endcase
 end
 
-target_address_constructor target_address_constructor(
-    .imm(id_ex_q.imm),
-    .pc(id_ex_q.pc),
-    .S1val(s1_fwd),
-    .op_class(id_ex_q.op_class),
-        
-    .ta(ta)
+target_address_constructor u_target_address_constructor(
+    .imm_i(id_ex_i.imm),
+    .pc_i(id_ex_i.pc),
+    .rs1_data_i(rs1_fwd),
+    .op_class_i(id_ex_i.op_class),
+
+    .ta_o(ta)
 );
 
-alu alu(
-    .val1(s1_fwd),
-    .val2(id_ex_q.ex.alu_s2_ctrl ? s2_fwd : id_ex_q.imm),
-    .alu_fct3(id_ex_q.ex.alu_fct3),
+alu u_alu(
+    .val1_i(rs1_fwd),
+    .val2_i(id_ex_i.ex.alu_s2_ctrl ? rs2_fwd : id_ex_i.imm),
+    .alu_fct3_i(id_ex_i.ex.alu_fct3),
 
-    .alu_out(ex_mem_d.alu_out)
+    .alu_result_o(ex_mem_o.alu_result)
 );
 
-branch_unit branch_unit(
-    .alu_out(ex_mem_d.alu_out),
-    .fct3(id_ex_q.ex.fct3),
+branch_unit u_branch_unit(
+    .alu_result_i(ex_mem_o.alu_result),
+    .fct3_i(id_ex_i.ex.fct3),
 
-    .br(br)
+    .br_o(br)
 );
 
-WB_sel_mux WB_sel_mux(
-    .alu(ex_mem_d.alu_out),
-    .pc(ex_mem_d.pc),
-    .op_class(ex_mem_d.op_class),  //cu
-    .ta(ta),
+wb_sel_mux u_wb_sel_mux(
+    .alu_i(ex_mem_o.alu_result),
+    .pc_i(ex_mem_o.pc),
+    .op_class_i(ex_mem_o.op_class),  //cu
+    .ta_i(ta),
 
-    .WBval(ex_mem_d.temp_WBval)
+    .wb_val_o(ex_mem_o.temp_wb_data)
 );
-
 endmodule
